@@ -22,8 +22,10 @@ app.use(helmet());
 
 // Dynamic CORS — reads allowed origins from env (comma-separated)
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+  ? process.env.CORS_ORIGIN.split(',').map(s => s.trim().replace(/\/+$/, ''))
   : ['http://localhost:5173', 'http://localhost:3000'];
+
+console.log('🌐 Allowed CORS origins:', allowedOrigins);
 
 app.use(cors({
   origin: allowedOrigins,

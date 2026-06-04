@@ -1,14 +1,19 @@
 // ─── PostgreSQL Connection Pool ───
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host:     process.env.DB_HOST,
-  port:     parseInt(process.env.DB_PORT, 10),
-  database: process.env.DB_NAME,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+// Render provides DATABASE_URL; fall back to individual vars for local dev
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    })
+  : new Pool({
+      user:     process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      host:     process.env.DB_HOST,
+      port:     parseInt(process.env.DB_PORT, 10),
+      database: process.env.DB_NAME,
+    });
 
 // Test connection on startup
 pool.on('connect', () => {
