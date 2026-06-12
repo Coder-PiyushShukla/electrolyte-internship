@@ -7,6 +7,7 @@ import TransactionTable from '../components/TransactionTable';
 import AddTransactionModal from '../components/AddTransactionModal';
 import UploadModal from '../components/UploadModal';
 import EntryFormCard from '../components/EntryFormCard';
+import ChallanVerification from '../components/ChallanVerification';
 
 export default function Dashboard({ user }) {
   const [transactions, setTransactions] = useState([]);
@@ -48,7 +49,7 @@ export default function Dashboard({ user }) {
   const handleDelete = (deletedId) => {
     setTransactions((prev) => prev.filter((t) => t.id !== deletedId));
     // Re-fetch summary
-    api.get('/transactions/summary').then(res => setSummary(res.data.data)).catch(() => {});
+    api.get('/transactions/summary').then(res => setSummary(res.data.data)).catch(() => { });
   };
 
   const handleUploadComplete = () => {
@@ -97,6 +98,9 @@ export default function Dashboard({ user }) {
 
       {/* Entry Form Card */}
       <EntryFormCard user={user} />
+
+      {/* ── Challan Verification (new) ── */}
+      <ChallanVerification />
 
       {/* Transaction Table */}
       <TransactionTable
