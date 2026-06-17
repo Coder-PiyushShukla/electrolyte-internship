@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiPlus, FiUploadCloud, FiRefreshCw } from 'react-icons/fi';
+import { motion } from 'framer-motion';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import SummaryCards from '../components/SummaryCards';
@@ -8,6 +9,25 @@ import AddTransactionModal from '../components/AddTransactionModal';
 import UploadModal from '../components/UploadModal';
 import EntryFormCard from '../components/EntryFormCard';
 import ChallanVerification from '../components/ChallanVerification';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.12
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 30 },
+  show: { 
+    opacity: 1, 
+    y: 0, 
+    transition: { type: "spring", stiffness: 100, damping: 14 } 
+  }
+};
 
 export default function Dashboard({ user }) {
   const [transactions, setTransactions] = useState([]);
@@ -43,12 +63,11 @@ export default function Dashboard({ user }) {
   }, [fetchData]);
 
   const handleTransactionAdded = (newTxn) => {
-    fetchData(); // Re-fetch for accurate summary
+    fetchData(); 
   };
 
   const handleDelete = (deletedId) => {
     setTransactions((prev) => prev.filter((t) => t.id !== deletedId));
-    // Re-fetch summary
     api.get('/transactions/summary').then(res => setSummary(res.data.data)).catch(() => { });
   };
 
@@ -57,70 +76,98 @@ export default function Dashboard({ user }) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Dashboard</h2>
-          <p className="text-sm text-surface-400 mt-0.5">Track and manage your PCB inventory</p>
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8"
+    >
+      <motion.div 
+        variants={itemVariants} 
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 bg-surface-900/50 backdrop-blur-2xl border border-surface-700/50 p-6 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-500/5 to-transparent pointer-events-none" />
+        
+        <div className="relative z-10">
+          <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-surface-400 tracking-tight">
+            Dashboard
+          </h2>
+          <p className="text-xs text-brand-400 mt-1 uppercase tracking-widest font-semibold">
+            Track and manage your PCB inventory
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
+        
+        <div className="flex flex-wrap items-center gap-4 relative z-10">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             id="refresh-btn"
             onClick={fetchData}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-surface-300 bg-surface-800/60 border border-surface-700 rounded-xl hover:bg-surface-800 hover:text-white transition-all duration-200 disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-surface-300 bg-surface-800/80 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-white transition-colors duration-300 disabled:opacity-50 cursor-pointer shadow-lg"
           >
-            <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-400' : ''}`} />
             Refresh
-          </button>
-          <button
+          </motion.button>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             id="upload-btn"
             onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-surface-200 bg-surface-800/80 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-white transition-all duration-200 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-surface-200 bg-surface-800/90 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-white transition-colors duration-300 cursor-pointer shadow-lg"
           >
-            <FiUploadCloud className="w-4 h-4" />
+            <FiUploadCloud className="w-4 h-4 text-brand-300" />
             Import Excel
-          </button>
-          <button
+          </motion.button>
+          
+          <motion.button
+            whileHover={{ scale: 1.05, boxShadow: "0 0 25px rgba(58,134,255,0.4)" }}
+            whileTap={{ scale: 0.95 }}
             id="add-transaction-btn"
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-white bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 rounded-xl shadow-lg shadow-brand-500/20 transition-all duration-200 cursor-pointer"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-brand-500 to-brand-700 hover:from-brand-400 hover:to-brand-600 rounded-xl shadow-[0_0_20px_rgba(58,134,255,0.2)] transition-all duration-300 cursor-pointer border border-white/10"
           >
-            <FiPlus className="w-4 h-4" />
+            <FiPlus className="w-5 h-5" />
             Add Transaction
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Summary Cards */}
-      <SummaryCards summary={summary} />
+      <motion.div variants={itemVariants}>
+        <SummaryCards summary={summary} />
+      </motion.div>
 
-      {/* Entry Form Card */}
-      <EntryFormCard user={user} />
+      <motion.div variants={itemVariants}>
+        <EntryFormCard user={user} />
+      </motion.div>
 
-      {/* ── Challan Verification (new) ── */}
-      <ChallanVerification />
+      <motion.div variants={itemVariants}>
+        <ChallanVerification />
+      </motion.div>
 
-      {/* Transaction Table */}
-      <TransactionTable
-        transactions={transactions}
-        filters={filters}
-        onFilterChange={setFilters}
-        onDelete={handleDelete}
-      />
+      <motion.div variants={itemVariants} className="bg-surface-900/40 backdrop-blur-xl border border-surface-700/50 rounded-3xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <TransactionTable
+          transactions={transactions}
+          filters={filters}
+          onFilterChange={setFilters}
+          onDelete={handleDelete}
+        />
+      </motion.div>
 
-      {/* Loading Overlay */}
       {loading && transactions.length === 0 && (
-        <div className="flex items-center justify-center py-20">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-3 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
-            <p className="text-sm text-surface-400">Loading transactions...</p>
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex items-center justify-center py-20"
+        >
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-10 h-10 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
+            <p className="text-xs font-semibold tracking-widest text-brand-400 animate-pulse uppercase">Syncing Database...</p>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Modals */}
       <AddTransactionModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
@@ -131,6 +178,6 @@ export default function Dashboard({ user }) {
         onClose={() => setShowUploadModal(false)}
         onUploaded={handleUploadComplete}
       />
-    </div>
+    </motion.div>
   );
 }

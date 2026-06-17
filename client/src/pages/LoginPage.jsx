@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { FiUser, FiLock, FiLogIn, FiUserPlus, FiZap } from 'react-icons/fi';
+import { motion } from 'framer-motion';
+import Tilt from 'react-parallax-tilt';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
@@ -37,16 +39,13 @@ export default function LoginPage({ onLogin }) {
     setLoading(true);
     try {
       if (isSignUp) {
-        // Register
         await api.post('/auth/register', { username, password });
         toast.success('Account created! Signing you in...');
-        // Auto-login after register
         const { data } = await api.post('/auth/login', { username, password });
         localStorage.setItem('pcb_token', data.token);
         localStorage.setItem('pcb_user', JSON.stringify(data.user));
         onLogin(data.user);
       } else {
-        // Login
         const { data } = await api.post('/auth/login', { username, password });
         localStorage.setItem('pcb_token', data.token);
         localStorage.setItem('pcb_user', JSON.stringify(data.user));
@@ -67,137 +66,147 @@ export default function LoginPage({ onLogin }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-950 relative overflow-hidden">
-      {/* Animated background orbs */}
-      <div className="absolute top-[-200px] left-[-200px] w-[500px] h-[500px] bg-brand-600/10 rounded-full blur-[120px] animate-[pulseSoft_4s_ease-in-out_infinite]" />
-      <div className="absolute bottom-[-200px] right-[-200px] w-[600px] h-[600px] bg-brand-500/8 rounded-full blur-[150px] animate-[pulseSoft_5s_ease-in-out_infinite_1s]" />
+      <motion.div
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.3, 0.5, 0.3],
+        }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-brand-600/20 rounded-full blur-[140px] pointer-events-none"
+      />
+      <motion.div
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.2, 0.4, 0.2],
+        }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] bg-brand-500/15 rounded-full blur-[160px] pointer-events-none"
+      />
 
-      <div className="animate-scale-in w-full max-w-md mx-4">
-        {/* Logo/Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-lg shadow-brand-500/25 mb-4">
-            <FiZap className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            PCB Tracker
-          </h1>
-          <p className="text-surface-400 mt-2">
-            Electrolyte Inventory Management
-          </p>
-        </div>
-
-        {/* Auth Card */}
-        <form
-          onSubmit={handleSubmit}
-          id={isSignUp ? 'signup-form' : 'login-form'}
-          className="bg-surface-900/80 backdrop-blur-xl border border-surface-800 rounded-2xl p-8 shadow-2xl"
+      <Tilt
+        tiltMaxAngleX={5}
+        tiltMaxAngleY={5}
+        perspective={1000}
+        scale={1.02}
+        transitionSpeed={2000}
+        gyroscope={true}
+        className="w-full max-w-md mx-4 z-10"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, type: "spring", bounce: 0.4 }}
         >
-          <h2 className="text-xl font-semibold text-white mb-6">
-            {isSignUp ? 'Create a new account' : 'Sign in to your account'}
-          </h2>
-
-          {/* Username */}
-          <div className="mb-5">
-            <label htmlFor="auth-username" className="block text-sm font-medium text-surface-300 mb-2">
-              Username
-            </label>
-            <div className="relative">
-              <FiUser className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-surface-500" />
-              <input
-                id="auth-username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                className="w-full pl-11 pr-4 py-3 bg-surface-800/60 border border-surface-700 rounded-xl text-white placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
-              />
-            </div>
-          </div>
-
-          {/* Password */}
-          <div className={isSignUp ? 'mb-5' : 'mb-6'}>
-            <label htmlFor="auth-password" className="block text-sm font-medium text-surface-300 mb-2">
-              Password
-            </label>
-            <div className="relative">
-              <FiLock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-surface-500" />
-              <input
-                id="auth-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={isSignUp ? 'Min 6 characters' : 'Enter your password'}
-                className="w-full pl-11 pr-4 py-3 bg-surface-800/60 border border-surface-700 rounded-xl text-white placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
-              />
-            </div>
-          </div>
-
-          {/* Confirm Password (Sign Up only) */}
-          {isSignUp && (
-            <div className="mb-6">
-              <label htmlFor="auth-confirm-password" className="block text-sm font-medium text-surface-300 mb-2">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <FiLock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-surface-500" />
-                <input
-                  id="auth-confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm your password"
-                  className="w-full pl-11 pr-4 py-3 bg-surface-800/60 border border-surface-700 rounded-xl text-white placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Submit */}
-          <button
-            id={isSignUp ? 'signup-submit' : 'login-submit'}
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 px-4 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : isSignUp ? (
-              <>
-                <FiUserPlus className="w-4.5 h-4.5" />
-                Create Account
-              </>
-            ) : (
-              <>
-                <FiLogIn className="w-4.5 h-4.5" />
-                Sign In
-              </>
-            )}
-          </button>
-
-          {/* Toggle Login/Signup */}
-          <div className="mt-5 text-center">
-            <p className="text-sm text-surface-400">
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-              <button
-                type="button"
-                id="toggle-auth-mode"
-                onClick={toggleMode}
-                className="text-brand-400 hover:text-brand-300 font-semibold transition-colors cursor-pointer"
-              >
-                {isSignUp ? 'Sign In' : 'Sign Up'}
-              </button>
+          <div className="text-center mb-8">
+            <motion.div 
+              whileHover={{ rotate: 180, scale: 1.1 }}
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-[0_0_40px_rgba(58,134,255,0.4)] mb-4"
+            >
+              <FiZap className="w-8 h-8 text-white" />
+            </motion.div>
+            <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-surface-400 tracking-tight">
+              PCB Tracker
+            </h1>
+            <p className="text-surface-400 mt-2 tracking-wide text-sm uppercase">
+              Electrolyte Inventory Management
             </p>
           </div>
 
-          {/* Default credentials hint (only on login) */}
-          {!isSignUp && (
-            <div className="mt-4 p-3 bg-brand-500/10 border border-brand-500/20 rounded-lg">
-              <p className="text-xs text-brand-300 text-center">
-                Default credentials: <span className="font-mono font-semibold">admin</span> / <span className="font-mono font-semibold">admin123</span>
-              </p>
+          <form
+            onSubmit={handleSubmit}
+            className="bg-surface-900/60 backdrop-blur-2xl border border-surface-700/50 rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            
+            <h2 className="text-xl font-semibold text-white mb-6">
+              {isSignUp ? 'Initialize Profile' : 'Authenticate Session'}
+            </h2>
+
+            <div className="mb-5 relative group">
+              <label className="block text-xs uppercase tracking-wider font-semibold text-surface-400 mb-2">
+                Username
+              </label>
+              <div className="relative">
+                <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-500 group-focus-within:text-brand-400 transition-colors" />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter identifier"
+                  className="w-full pl-12 pr-4 py-3.5 bg-surface-950/50 border border-surface-700/50 rounded-xl text-white placeholder:text-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300"
+                />
+              </div>
             </div>
-          )}
-        </form>
-      </div>
+
+            <div className={isSignUp ? 'mb-5 relative group' : 'mb-8 relative group'}>
+              <label className="block text-xs uppercase tracking-wider font-semibold text-surface-400 mb-2">
+                Security Key
+              </label>
+              <div className="relative">
+                <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-500 group-focus-within:text-brand-400 transition-colors" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={isSignUp ? 'Min 6 characters' : 'Enter security key'}
+                  className="w-full pl-12 pr-4 py-3.5 bg-surface-950/50 border border-surface-700/50 rounded-xl text-white placeholder:text-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300"
+                />
+              </div>
+            </div>
+
+            {isSignUp && (
+              <div className="mb-8 relative group">
+                <label className="block text-xs uppercase tracking-wider font-semibold text-surface-400 mb-2">
+                  Verify Key
+                </label>
+                <div className="relative">
+                  <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-500 group-focus-within:text-brand-400 transition-colors" />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm security key"
+                    className="w-full pl-12 pr-4 py-3.5 bg-surface-950/50 border border-surface-700/50 rounded-xl text-white placeholder:text-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300"
+                  />
+                </div>
+              </div>
+            )}
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-brand-500 to-brand-700 hover:from-brand-400 hover:to-brand-600 text-white font-medium rounded-xl shadow-[0_0_20px_rgba(58,134,255,0.3)] transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2 border border-white/10"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : isSignUp ? (
+                <>
+                  <FiUserPlus className="w-5 h-5" />
+                  Initialize
+                </>
+              ) : (
+                <>
+                  <FiLogIn className="w-5 h-5" />
+                  Access System
+                </>
+              )}
+            </motion.button>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="text-sm text-surface-400 hover:text-white transition-colors duration-200"
+              >
+                {isSignUp ? 'Already authenticated? Return' : 'Request system access'}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </Tilt>
     </div>
   );
 }
