@@ -8,7 +8,6 @@ import TransactionTable from '../components/TransactionTable';
 import AddTransactionModal from '../components/AddTransactionModal';
 import UploadModal from '../components/UploadModal';
 import EntryFormCard from '../components/EntryFormCard';
-import ChallanVerification from '../components/ChallanVerification';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -29,7 +28,7 @@ const itemVariants = {
   }
 };
 
-export default function Dashboard({ user }) {
+export default function MainPage({ user }) {
   const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState([]);
   const [filters, setFilters] = useState({ brand: '', type: '' });
@@ -140,10 +139,6 @@ export default function Dashboard({ user }) {
 
       <motion.div variants={itemVariants}>
         <EntryFormCard user={user} />
-      </motion.div>
-
-      <motion.div variants={itemVariants}>
-        <ChallanVerification />
       </motion.div>
 
       <motion.div variants={itemVariants} className="bg-surface-900/40 backdrop-blur-xl border border-surface-700/50 rounded-3xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">

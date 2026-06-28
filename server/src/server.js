@@ -40,6 +40,8 @@ app.use('/api/auth',         require('./routes/auth.routes'));
 app.use('/api/transactions', require('./routes/transaction.routes'));
 app.use('/api/upload',       require('./routes/upload.routes'));
 app.use('/api/entries',      require('./routes/entry.routes'));
+app.use('/api/lot-counter',  require('./routes/lotCounter.routes'));
+app.use('/api/email',        require('./routes/email.routes'));
 
 // ── Health Check ──
 app.get('/api/health', (req, res) => {

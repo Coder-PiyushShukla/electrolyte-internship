@@ -1,6 +1,11 @@
 import { FiZap, FiLogOut, FiUser } from 'react-icons/fi';
+import { NavLink } from 'react-router-dom';
 
 export default function Navbar({ user, onLogout }) {
+  const linkBase = "px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200";
+  const linkActive = "text-white bg-surface-800";
+  const linkInactive = "text-surface-400 hover:text-white hover:bg-surface-800/60";
+
   return (
     <nav id="main-navbar" className="sticky top-0 z-50 bg-surface-950/80 backdrop-blur-xl border-b border-surface-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -14,6 +19,28 @@ export default function Navbar({ user, onLogout }) {
               <h1 className="text-lg font-bold text-white leading-tight">PCB Tracker</h1>
               <p className="text-[11px] text-surface-500 leading-none -mt-0.5">Electrolyte Inventory</p>
             </div>
+          </div>
+
+          {/* Page Navigation */}
+          <div id="page-nav-links" className="hidden md:flex items-center gap-1">
+            <NavLink
+              to="/"
+              className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+            >
+              Main
+            </NavLink>
+            <NavLink
+              to="/inward"
+              className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+            >
+              Inward
+            </NavLink>
+            <NavLink
+              to="/outward"
+              className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+            >
+              Outward
+            </NavLink>
           </div>
 
           {/* User Menu */}
@@ -31,6 +58,28 @@ export default function Navbar({ user, onLogout }) {
               <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
+        </div>
+
+        {/* Mobile Page Navigation */}
+        <div id="page-nav-links-mobile" className="md:hidden flex items-center gap-1 pb-2 -mt-1">
+          <NavLink
+            to="/"
+            className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+          >
+            Main
+          </NavLink>
+          <NavLink
+            to="/inward"
+            className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+          >
+            Inward
+          </NavLink>
+          <NavLink
+            to="/outward"
+            className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+          >
+            Outward
+          </NavLink>
         </div>
       </div>
     </nav>

@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
+import MainPage from './pages/MainPage';
+import InwardPage from './pages/InwardPage';
+import OutwardPage from './pages/OutwardPage';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -54,10 +57,16 @@ function App() {
       />
 
       {user ? (
-        <div className="min-h-screen bg-surface-950">
-          <Navbar user={user} onLogout={handleLogout} />
-          <Dashboard user={user} />
-        </div>
+        <BrowserRouter>
+          <div className="min-h-screen bg-surface-950">
+            <Navbar user={user} onLogout={handleLogout} />
+            <Routes>
+              <Route path="/" element={<MainPage user={user} />} />
+              <Route path="/inward" element={<InwardPage user={user} />} />
+              <Route path="/outward" element={<OutwardPage user={user} />} />
+            </Routes>
+          </div>
+        </BrowserRouter>
       ) : (
         <LoginPage onLogin={handleLogin} />
       )}
