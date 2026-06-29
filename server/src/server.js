@@ -17,6 +17,12 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// ── Ensure outward_pdfs directory exists ──
+const outwardPdfsDir = path.join(__dirname, '..', 'outward_pdfs');
+if (!fs.existsSync(outwardPdfsDir)) {
+  fs.mkdirSync(outwardPdfsDir, { recursive: true });
+}
+
 // ── Middleware ──
 app.use(helmet());
 
@@ -42,6 +48,7 @@ app.use('/api/upload',       require('./routes/upload.routes'));
 app.use('/api/entries',      require('./routes/entry.routes'));
 app.use('/api/lot-counter',  require('./routes/lotCounter.routes'));
 app.use('/api/email',        require('./routes/email.routes'));
+app.use('/api/outward',      require('./routes/outward.routes'));
 
 // ── Health Check ──
 app.get('/api/health', (req, res) => {
