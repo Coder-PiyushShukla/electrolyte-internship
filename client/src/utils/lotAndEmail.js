@@ -22,3 +22,22 @@ export async function sendChallanReportEmail({ to, brand, challanNo, challanDate
     });
     return data;
 }
+
+// Record inward inventory — called when the user clicks "Save Challan".
+// Writes one pcb_transactions row (transaction_type = 'in_ward') per item
+// line so the Outward page's inventory check sees the received stock.
+// Uses physicalQty (what was actually counted) as the quantity, not challanQty.
+export async function recordInwardInventory({ brand, challanNo, challanDate, lotNo, rows }) {
+    const { data } = await api.post('/inward/record', {
+        brand,
+        challanNo,
+        challanDate,
+        lotNo,
+        rows: rows.map((r) => ({
+            itemCode: r.itemCode,
+            description: r.description,
+            physicalQty: r.physicalQty,
+        })),
+    });
+    return data;
+}

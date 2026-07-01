@@ -48,6 +48,7 @@ app.use('/api/upload',       require('./routes/upload.routes'));
 app.use('/api/entries',      require('./routes/entry.routes'));
 app.use('/api/lot-counter',  require('./routes/lotCounter.routes'));
 app.use('/api/email',        require('./routes/email.routes'));
+app.use('/api/inward',       require('./routes/inward.routes'));
 app.use('/api/outward',      require('./routes/outward.routes'));
 
 // ── Health Check ──

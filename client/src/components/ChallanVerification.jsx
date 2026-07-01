@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { lookupDescription, getItemCodes } from '../data/masterData';
-import { peekNextLotNo, incrementLotNo, sendChallanReportEmail } from '../utils/lotAndEmail';
+import { peekNextLotNo, incrementLotNo, sendChallanReportEmail, recordInwardInventory } from '../utils/lotAndEmail';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -317,10 +317,32 @@ export default function ChallanVerification() {
 
     const handleSave = async () => {
         if (!challanNo.trim()) { toast.error('Please enter a Challan Number.'); return; }
+
+        // Require at least one row with both an item code and a physical qty
+        const validRows = rows.filter(
+            (r) => r.itemCode && r.itemCode.trim() && parseInt(r.physicalQty, 10) > 0
+        );
+        if (validRows.length === 0) {
+            toast.error('Please fill in at least one item code and physical quantity before saving.');
+            return;
+        }
+
         try {
+            // 1. Assign (and commit) the next Lot No. for this brand
             const finalLotNo = await incrementLotNo(brand);
             setLotNo(finalLotNo);
 
+            // 2. Record each row's physical qty as an in_ward transaction in the DB
+            //    so the Outward page's inventory check immediately sees the new stock.
+            await recordInwardInventory({
+                brand,
+                challanNo: challanNo.trim(),
+                challanDate,
+                lotNo: finalLotNo,
+                rows: validRows,
+            });
+
+            // 3. Save to local history for the History modal
             const history = loadHistory();
             const entry = {
                 id: Date.now(),
@@ -333,9 +355,10 @@ export default function ChallanVerification() {
             };
             const updated = [entry, ...history.filter((h) => h.challanNo !== entry.challanNo)].slice(0, 50);
             saveHistory(updated);
-            toast.success(`Challan saved to history! (Lot No. ${finalLotNo})`);
+
+            toast.success(`Challan saved! Lot No. ${finalLotNo} — ${validRows.length} item(s) added to inventory.`);
         } catch (err) {
-            toast.error(err.response?.data?.error || 'Failed to save challan / assign lot number.');
+            toast.error(err.response?.data?.error || 'Failed to save challan / update inventory.');
         }
     };
 

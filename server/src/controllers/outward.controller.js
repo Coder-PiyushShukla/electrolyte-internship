@@ -150,12 +150,14 @@ async function getInwardReceivedQty(partCode) {
 }
 
 // Returns total already-dispatched quantity (OK + SCRAP, across all past
-// outward dispatches) for an item_code, so we can check remaining inventory.
+// outward dispatches) for an item_code (part_code), so we can check remaining
+// inventory. Reads from pcb_transactions out_ward — the same table that
+// createDispatch writes to — so inward and outward are always consistent.
 async function getOutwardDispatchedQty(itemCode) {
   const result = await db.query(
     `SELECT COALESCE(SUM(quantity), 0) AS total
-     FROM outward_dispatch_items
-     WHERE item_code = $1`,
+     FROM pcb_transactions
+     WHERE part_code = $1 AND transaction_type = 'out_ward'`,
     [itemCode]
   );
   return parseInt(result.rows[0].total, 10) || 0;
@@ -292,12 +294,32 @@ exports.createDispatch = async (req, res) => {
       for (const item of items) {
         const qty = parseInt(item.quantity, 10) || 0;
         const rate = parseFloat(item.rate) || 0;
+
+        // Insert into outward_dispatch_items (dispatch record)
         await client.query(
           `INSERT INTO outward_dispatch_items
             (dispatch_id, item_code, description, status, hsn_code, unit, quantity, rate, amount)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [dispatch.id, item.itemCode, item.description || lookupDescription(brand, item.itemCode),
             item.status, item.hsnCode, item.unit || 'Nos', qty, rate, qty * rate]
+        );
+
+        // Also insert into pcb_transactions as out_ward so inventory decreases
+        // and getInwardReceivedQty - getOutwardDispatchedQty stays accurate.
+        await client.query(
+          `INSERT INTO pcb_transactions
+             (brand_name, transaction_type, dc_number, transaction_date, part_code, quantity, status, remarks)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            brand,
+            'out_ward',
+            dcNo,
+            challanDate,
+            item.itemCode,
+            qty,
+            item.status === 'OK' ? 'ok' : 'scrap',
+            `DC: ${dcNo} | Lot: ${lotNo} | ${item.status}`,
+          ]
         );
       }
 

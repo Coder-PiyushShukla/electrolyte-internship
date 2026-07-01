@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiPlus, FiUploadCloud, FiRefreshCw } from 'react-icons/fi';
+import { FiUploadCloud, FiRefreshCw } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import SummaryCards from '../components/SummaryCards';
 import TransactionTable from '../components/TransactionTable';
-import AddTransactionModal from '../components/AddTransactionModal';
+
 import UploadModal from '../components/UploadModal';
 import EntryFormCard from '../components/EntryFormCard';
 
@@ -33,7 +33,6 @@ export default function MainPage({ user }) {
   const [summary, setSummary] = useState([]);
   const [filters, setFilters] = useState({ brand: '', type: '' });
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -60,10 +59,6 @@ export default function MainPage({ user }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const handleTransactionAdded = (newTxn) => {
-    fetchData(); 
-  };
 
   const handleDelete = (deletedId) => {
     setTransactions((prev) => prev.filter((t) => t.id !== deletedId));
@@ -120,16 +115,7 @@ export default function MainPage({ user }) {
             Import Excel
           </motion.button>
           
-          <motion.button
-            whileHover={{ scale: 1.05, boxShadow: "0 0 25px rgba(58,134,255,0.4)" }}
-            whileTap={{ scale: 0.95 }}
-            id="add-transaction-btn"
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-brand-500 to-brand-700 hover:from-brand-400 hover:to-brand-600 rounded-xl shadow-[0_0_20px_rgba(58,134,255,0.2)] transition-all duration-300 cursor-pointer border border-white/10"
-          >
-            <FiPlus className="w-5 h-5" />
-            Add Transaction
-          </motion.button>
+
         </div>
       </motion.div>
 
@@ -163,11 +149,7 @@ export default function MainPage({ user }) {
         </motion.div>
       )}
 
-      <AddTransactionModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onAdded={handleTransactionAdded}
-      />
+
       <UploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
