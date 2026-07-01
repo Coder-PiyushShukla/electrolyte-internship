@@ -1,33 +1,59 @@
 // ─── Email Controller ───
-// Sends the PCB Verification Report as a real email via SMTP (nodemailer),
-// instead of relying on the browser's mailto: handler (which fails silently
-// on desktops without a configured default mail client).
+// Sends the PCB Verification Report via email.
+// Supports two providers:
+//   1. Resend (HTTP API) — works on Render free tier (set RESEND_API_KEY)
+//   2. Nodemailer SMTP   — works locally (set SMTP_HOST, SMTP_USER, SMTP_PASS)
+// Resend is preferred when RESEND_API_KEY is set; SMTP is the fallback.
 const nodemailer = require('nodemailer');
 
 let cachedTransporter = null;
 
+// ── Resend HTTP API sender (no npm package needed) ──
+async function sendViaResend({ to, from, subject, html, text }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null; // Not configured
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: from || 'PCB Tracker <onboarding@resend.dev>',
+      to: Array.isArray(to) ? to : [to],
+      subject,
+      html,
+      text,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Resend API error (${response.status}): ${errorData.message || response.statusText}`);
+  }
+
+  return await response.json();
+}
+
+// ── SMTP transporter (for local dev) ──
 function getTransporter() {
   if (cachedTransporter) return cachedTransporter;
 
-  // ── SMTP credentials come from environment variables ──
-  // Set these on Render (and in server/.env for local dev):
-  //   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM (optional)
-  // For Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=587,
-  //            SMTP_USER=youraddress@gmail.com, SMTP_PASS=<16-char App Password>
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
 
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    return null; // Not configured yet
+    return null; // Not configured
   }
 
   cachedTransporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: parseInt(SMTP_PORT, 10) || 587,
-    secure: (parseInt(SMTP_PORT, 10) || 587) === 465, // true for 465, false for 587
+    secure: (parseInt(SMTP_PORT, 10) || 587) === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
     tls: {
-      rejectUnauthorized: false // Prevents cloud hosting firewalls from blocking the connection timeout
-    }
+      rejectUnauthorized: false,
+    },
   });
 
   return cachedTransporter;
@@ -42,7 +68,7 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Build a proper HTML table report (fixes jagged plain-text alignment) ──
+// ── Build a proper HTML table report ──
 function buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows }) {
   let totalChallan = 0;
   let totalPhysical = 0;
@@ -139,25 +165,42 @@ exports.sendReport = async (req, res) => {
       return res.status(400).json({ error: 'Challan number and at least one item row are required.' });
     }
 
+    const html = buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows });
+    const text = buildPlainTextReport({ brand, challanNo, challanDate, lotNo, rows });
+    const subject = `PCB Verification Report - ${challanNo}`;
+    const fromAddress = process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+
+    // ── Strategy 1: Try Resend (HTTP API — works on Render free tier) ──
+    if (process.env.RESEND_API_KEY) {
+      console.log('📧 Sending email via Resend API...');
+      await sendViaResend({
+        to: to.trim(),
+        from: fromAddress,
+        subject,
+        html,
+        text,
+      });
+      return res.json({ message: 'Email successfully sent via Resend.' });
+    }
+
+    // ── Strategy 2: Fallback to SMTP (works locally) ──
     const transporter = getTransporter();
     if (!transporter) {
       return res.status(503).json({
-        error: 'Email sending is not configured on the server yet. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.',
+        error: 'Email sending is not configured. Set RESEND_API_KEY (for cloud) or SMTP_HOST/SMTP_USER/SMTP_PASS (for local).',
       });
     }
 
-    const html = buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows });
-    const text = buildPlainTextReport({ brand, challanNo, challanDate, lotNo, rows });
-
+    console.log('📧 Sending email via SMTP...');
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from: fromAddress,
       to: to.trim(),
-      subject: `PCB Verification Report - ${challanNo}`,
+      subject,
       text,
       html,
     });
 
-    res.json({ message: 'Email successfully sent.' });
+    res.json({ message: 'Email successfully sent via SMTP.' });
   } catch (err) {
     console.error('Send email error:', err);
     res.status(500).json({ error: `Failed to send email: ${err.message}` });
