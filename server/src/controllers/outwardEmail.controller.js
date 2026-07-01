@@ -1,4 +1,8 @@
 // ─── Outward Email Controller ───
+// Sends outward delivery challan email with PDF attachment.
+// Supports two providers:
+//   1. Resend (HTTP API) — works on Render free tier (set RESEND_API_KEY)
+//   2. Nodemailer SMTP   — works locally (set SMTP_HOST, SMTP_USER, SMTP_PASS)
 const fs = require('fs');
 const nodemailer = require('nodemailer');
 const db = require('../config/db');
@@ -6,6 +10,55 @@ const { getCompany } = require('../config/companyData');
 const { generatePdfFile } = require('./outwardDocument.controller');
 
 let cachedTransporter = null;
+
+// ── Resend HTTP API sender (supports attachments) ──
+async function sendViaResend({ to, from, subject, html, attachments }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null; // Not configured
+
+  // Build attachments array for Resend API
+  const resendAttachments = [];
+  if (attachments && attachments.length > 0) {
+    for (const att of attachments) {
+      if (att.path && fs.existsSync(att.path)) {
+        const fileBuffer = fs.readFileSync(att.path);
+        resendAttachments.push({
+          filename: att.filename,
+          content: fileBuffer.toString('base64'),
+        });
+      }
+    }
+  }
+
+  const body = {
+    from: from || 'PCB Tracker <onboarding@resend.dev>',
+    to: Array.isArray(to) ? to : [to],
+    subject,
+    html,
+  };
+
+  if (resendAttachments.length > 0) {
+    body.attachments = resendAttachments;
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Resend API error (${response.status}): ${errorData.message || response.statusText}`);
+  }
+
+  return await response.json();
+}
+
+// ── SMTP transporter (for local dev) ──
 function getTransporter() {
   if (cachedTransporter) return cachedTransporter;
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
@@ -17,8 +70,8 @@ function getTransporter() {
     secure: (parseInt(SMTP_PORT, 10) || 587) === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
     tls: {
-      rejectUnauthorized: false // Prevents cloud hosting firewalls from blocking the connection timeout
-    }
+      rejectUnauthorized: false,
+    },
   });
   return cachedTransporter;
 }
@@ -78,13 +131,6 @@ exports.sendOutwardEmail = async (req, res) => {
     if (!dispatchId) return res.status(400).json({ error: 'dispatchId is required.' });
     if (!to || !to.trim()) return res.status(400).json({ error: 'Recipient email address is required.' });
 
-    const transporter = getTransporter();
-    if (!transporter) {
-      return res.status(503).json({
-        error: 'Email sending is not configured on the server yet. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.',
-      });
-    }
-
     const dispatchResult = await db.query('SELECT * FROM outward_dispatches WHERE id = $1', [dispatchId]);
     if (dispatchResult.rows.length === 0) return res.status(404).json({ error: 'Dispatch not found.' });
     const itemsResult = await db.query('SELECT * FROM outward_dispatch_items WHERE dispatch_id = $1 ORDER BY id', [dispatchId]);
@@ -99,18 +145,45 @@ exports.sendOutwardEmail = async (req, res) => {
     }
 
     const html = buildSummaryHtml(dispatch);
+    const pdfFilename = `${dispatch.dc_no.replace(/\//g, '-')}.pdf`;
+    const subject = `Outward PCB Delivery Challan - ${dispatch.dc_no}`;
+    const fromAddress = process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
 
+    // ── Strategy 1: Try Resend (HTTP API — works on Render free tier) ──
+    if (process.env.RESEND_API_KEY) {
+      console.log('📧 Sending outward email via Resend API...');
+      // Resend free tier only allows sending from onboarding@resend.dev
+      const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
+      await sendViaResend({
+        to: to.trim(),
+        from: resendFrom,
+        subject,
+        html,
+        attachments: [{ filename: pdfFilename, path: pdfPath }],
+      });
+      return res.json({ message: 'Email successfully sent via Resend.' });
+    }
+
+    // ── Strategy 2: Fallback to SMTP (works locally) ──
+    const transporter = getTransporter();
+    if (!transporter) {
+      return res.status(503).json({
+        error: 'Email sending is not configured. Set RESEND_API_KEY (for cloud) or SMTP_HOST/SMTP_USER/SMTP_PASS (for local).',
+      });
+    }
+
+    console.log('📧 Sending outward email via SMTP...');
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from: fromAddress,
       to: to.trim(),
-      subject: `Outward PCB Delivery Challan - ${dispatch.dc_no}`,
+      subject,
       html,
       attachments: [
-        { filename: `${dispatch.dc_no.replace(/\//g, '-')}.pdf`, path: pdfPath },
+        { filename: pdfFilename, path: pdfPath },
       ],
     });
 
-    res.json({ message: 'Email successfully sent.' });
+    res.json({ message: 'Email successfully sent via SMTP.' });
   } catch (err) {
     console.error('Send outward email error:', err);
     res.status(500).json({ error: `Failed to send email: ${err.message}` });

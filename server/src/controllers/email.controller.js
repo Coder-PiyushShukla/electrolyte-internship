@@ -173,9 +173,12 @@ exports.sendReport = async (req, res) => {
     // ── Strategy 1: Try Resend (HTTP API — works on Render free tier) ──
     if (process.env.RESEND_API_KEY) {
       console.log('📧 Sending email via Resend API...');
+      // Resend free tier only allows sending from onboarding@resend.dev
+      // Set RESEND_FROM only if you've verified a custom domain in Resend
+      const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
       await sendViaResend({
         to: to.trim(),
-        from: fromAddress,
+        from: resendFrom,
         subject,
         html,
         text,
