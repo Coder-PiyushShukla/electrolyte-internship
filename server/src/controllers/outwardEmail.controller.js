@@ -13,9 +13,12 @@ function getTransporter() {
 
   cachedTransporter = nodemailer.createTransport({
     host: SMTP_HOST,
-    port: parseInt(SMTP_PORT, 10) || 465,
-    secure: (parseInt(SMTP_PORT, 10) || 465) === 465,
+    port: parseInt(SMTP_PORT, 10) || 587,
+    secure: (parseInt(SMTP_PORT, 10) || 587) === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    tls: {
+      rejectUnauthorized: false // Prevents cloud hosting firewalls from blocking the connection timeout
+    }
   });
   return cachedTransporter;
 }

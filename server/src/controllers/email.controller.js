@@ -12,7 +12,7 @@ function getTransporter() {
   // ── SMTP credentials come from environment variables ──
   // Set these on Render (and in server/.env for local dev):
   //   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM (optional)
-  // For Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=465,
+  // For Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=587,
   //            SMTP_USER=youraddress@gmail.com, SMTP_PASS=<16-char App Password>
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
 
@@ -22,9 +22,12 @@ function getTransporter() {
 
   cachedTransporter = nodemailer.createTransport({
     host: SMTP_HOST,
-    port: parseInt(SMTP_PORT, 10) || 465,
-    secure: (parseInt(SMTP_PORT, 10) || 465) === 465, // true for 465, false for 587
+    port: parseInt(SMTP_PORT, 10) || 587,
+    secure: (parseInt(SMTP_PORT, 10) || 587) === 465, // true for 465, false for 587
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    tls: {
+      rejectUnauthorized: false // Prevents cloud hosting firewalls from blocking the connection timeout
+    }
   });
 
   return cachedTransporter;
