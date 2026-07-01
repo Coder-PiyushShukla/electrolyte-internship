@@ -3,7 +3,7 @@ import { FiPlus, FiUser, FiFileText, FiHash, FiCalendar, FiCpu, FiCheck } from '
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
-export default function EntryFormCard({ user }) {
+export default function EntryFormCard({ user, onEntryAdded }) {
   const [form, setForm] = useState({
     doc_no: '',
     lot_no: '',
@@ -43,6 +43,7 @@ export default function EntryFormCard({ user }) {
       await api.post('/entries', form);
       setSuccess(true);
       toast.success('Entry added successfully!');
+      if (onEntryAdded) onEntryAdded();
       // Reset form after brief delay to show success state
       setTimeout(() => {
         setForm({

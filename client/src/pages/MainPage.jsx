@@ -5,7 +5,7 @@ import api from '../utils/api';
 import toast from 'react-hot-toast';
 import SummaryCards from '../components/SummaryCards';
 import TransactionTable from '../components/TransactionTable';
-
+import EntriesTable from '../components/EntriesTable';
 import UploadModal from '../components/UploadModal';
 import EntryFormCard from '../components/EntryFormCard';
 
@@ -30,6 +30,7 @@ const itemVariants = {
 
 export default function MainPage({ user }) {
   const [transactions, setTransactions] = useState([]);
+  const [entries, setEntries] = useState([]);
   const [summary, setSummary] = useState([]);
   const [filters, setFilters] = useState({ brand: '', type: '' });
   const [loading, setLoading] = useState(true);
@@ -56,13 +57,27 @@ export default function MainPage({ user }) {
     }
   }, [filters]);
 
+  const fetchEntries = useCallback(async () => {
+    try {
+      const { data } = await api.get('/entries');
+      setEntries(data.data);
+    } catch {
+      // Silently fail — entries section is supplementary
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchEntries();
+  }, [fetchData, fetchEntries]);
 
   const handleDelete = (deletedId) => {
     setTransactions((prev) => prev.filter((t) => t.id !== deletedId));
     api.get('/transactions/summary').then(res => setSummary(res.data.data)).catch(() => { });
+  };
+
+  const handleEntryDelete = (deletedId) => {
+    setEntries((prev) => prev.filter((e) => e.id !== deletedId));
   };
 
   const handleUploadComplete = () => {
@@ -124,7 +139,11 @@ export default function MainPage({ user }) {
       </motion.div>
 
       <motion.div variants={itemVariants}>
-        <EntryFormCard user={user} />
+        <EntryFormCard user={user} onEntryAdded={fetchEntries} />
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="bg-surface-900/40 backdrop-blur-xl border border-surface-700/50 rounded-3xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <EntriesTable entries={entries} onDelete={handleEntryDelete} />
       </motion.div>
 
       <motion.div variants={itemVariants} className="bg-surface-900/40 backdrop-blur-xl border border-surface-700/50 rounded-3xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
