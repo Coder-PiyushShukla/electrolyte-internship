@@ -1,20 +1,24 @@
 // ─── Outward Document (PDF) Controller ───
+// Uses pdfmake (pure JS) instead of Puppeteer — no Chrome dependency required.
 const path = require('path');
 const fs = require('fs');
-const puppeteer = require('puppeteer');
+const PdfPrinter = require('pdfmake');
 const db = require('../config/db');
 const { getCompany } = require('../config/companyData');
 
 const PDF_DIR = path.join(__dirname, '..', '..', 'outward_pdfs');
 if (!fs.existsSync(PDF_DIR)) fs.mkdirSync(PDF_DIR, { recursive: true });
 
-function escapeHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+// ── Font definitions for pdfmake ──
+const fonts = {
+  Helvetica: {
+    normal: 'Helvetica',
+    bold: 'Helvetica-Bold',
+    italics: 'Helvetica-Oblique',
+    bolditalics: 'Helvetica-BoldOblique',
+  },
+};
+const printer = new PdfPrinter(fonts);
 
 function formatCurrency(n) {
   return Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -26,8 +30,12 @@ function formatDate(d) {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// ── Build the full HTML for the delivery challan ──
-function buildChallanHtml(dispatch) {
+function safe(val) {
+  return String(val ?? '');
+}
+
+// ── Build the pdfmake document definition ──
+function buildDocDefinition(dispatch) {
   const company = getCompany();
   const items = dispatch.items || [];
 
@@ -36,171 +44,287 @@ function buildChallanHtml(dispatch) {
   const grandQty = okQty + scrapQty;
   const numProducts = new Set(items.map((i) => i.item_code || i.itemCode)).size;
 
-  const rowsHtml = items.map((item, idx) => {
+  // ── Table body rows ──
+  const tableHeader = [
+    { text: 'Sr', style: 'tableHeader' },
+    { text: 'Item Code', style: 'tableHeader' },
+    { text: 'Product', style: 'tableHeader' },
+    { text: 'HSN', style: 'tableHeader' },
+    { text: 'Unit', style: 'tableHeader' },
+    { text: 'Status', style: 'tableHeader' },
+    { text: 'Qty', style: 'tableHeader', alignment: 'right' },
+    { text: 'Rate', style: 'tableHeader', alignment: 'right' },
+    { text: 'Amount', style: 'tableHeader', alignment: 'right' },
+  ];
+
+  const tableRows = items.map((item, idx) => {
     const qty = parseInt(item.quantity, 10) || 0;
     const rate = parseFloat(item.rate) || 0;
     const amount = parseFloat(item.amount) || qty * rate;
-    const statusColor = item.status === 'OK' ? '#059669' : '#dc2626';
-    const statusBg = item.status === 'OK' ? '#d1fae5' : '#fee2e2';
-    return `
-      <tr style="background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:center;">${idx + 1}</td>
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;font-family:monospace;">${escapeHtml(item.item_code || item.itemCode)}</td>
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;">${escapeHtml(item.description)}</td>
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:center;">${escapeHtml(item.hsn_code || item.hsnCode)}</td>
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:center;">${escapeHtml(item.unit || 'Nos')}</td>
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:center;">
-          <span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;">${escapeHtml(item.status)}</span>
-        </td>
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:right;">${qty}</td>
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:right;">${formatCurrency(rate)}</td>
-        <td style="padding:7px 10px;border:1px solid #cbd5e1;text-align:right;">${formatCurrency(amount)}</td>
-      </tr>`;
-  }).join('');
+    const isOk = item.status === 'OK';
+    const fillColor = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
-  const termsHtml = (company.terms || [])
-    .map((t, i) => `<li style="margin-bottom:4px;">${escapeHtml(t)}</li>`)
-    .join('');
+    return [
+      { text: String(idx + 1), alignment: 'center', fillColor },
+      { text: safe(item.item_code || item.itemCode), font: 'Helvetica', fillColor },
+      { text: safe(item.description), fillColor },
+      { text: safe(item.hsn_code || item.hsnCode), alignment: 'center', fillColor },
+      { text: safe(item.unit || 'Nos'), alignment: 'center', fillColor },
+      {
+        text: safe(item.status),
+        alignment: 'center',
+        color: isOk ? '#059669' : '#dc2626',
+        bold: true,
+        fontSize: 9,
+        fillColor,
+      },
+      { text: String(qty), alignment: 'right', fillColor },
+      { text: formatCurrency(rate), alignment: 'right', fillColor },
+      { text: formatCurrency(amount), alignment: 'right', fillColor },
+    ];
+  });
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8" />
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; margin: 0; padding: 32px; font-size: 13px; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e3a8a; padding-bottom: 14px; margin-bottom: 14px; }
-  .company-name { font-size: 22px; font-weight: 800; color: #1e3a8a; margin: 0 0 4px; }
-  .company-meta { font-size: 11.5px; color: #475569; line-height: 1.5; max-width: 380px; }
-  .logo-box { width: 64px; height: 64px; border-radius: 10px; background: #1e3a8a; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; }
-  .title { text-align: center; font-size: 17px; font-weight: 800; letter-spacing: 0.5px; margin: 8px 0 18px; padding: 8px 0; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; color: #1e3a8a; }
-  .two-col { display: flex; gap: 24px; margin-bottom: 18px; }
-  .col { flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; background: #f8fafc; }
-  .col h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; }
-  .row { display: flex; margin-bottom: 4px; font-size: 12px; }
-  .row .label { width: 110px; color: #64748b; flex-shrink: 0; }
-  .row .value { color: #1e293b; font-weight: 600; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12px; }
-  thead tr { background: #1e3a8a; color: white; }
-  th { padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; border: 1px solid #1e3a8a; }
-  .totals-box { display: flex; justify-content: flex-end; margin-bottom: 18px; }
-  .totals-table { width: 320px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
-  .totals-table .trow { display: flex; justify-content: space-between; padding: 7px 14px; font-size: 12.5px; border-bottom: 1px solid #e2e8f0; }
-  .totals-table .trow:last-child { border-bottom: none; background: #1e3a8a; color: white; font-weight: 700; }
-  .remarks-box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; margin-bottom: 18px; font-size: 12px; background: #fffbeb; }
-  .terms-box { border-top: 2px solid #cbd5e1; padding-top: 12px; margin-bottom: 30px; font-size: 11px; color: #475569; }
-  .terms-box h4 { font-size: 12px; color: #1e3a8a; margin: 0 0 8px; }
-  .terms-box ol { margin: 0; padding-left: 18px; }
-  .sign-area { display: flex; justify-content: space-between; margin-top: 40px; }
-  .sign-box { width: 45%; text-align: center; }
-  .sign-line { border-top: 1px solid #1e293b; margin-top: 50px; padding-top: 6px; font-size: 11.5px; font-weight: 600; }
-</style>
-</head>
-<body>
+  // ── Terms list ──
+  const terms = (company.terms || []).map((t, i) => `${i + 1}. ${t}`).join('\n');
 
-  <div class="header">
-    <div>
-      <p class="company-name">${escapeHtml(company.companyName)}</p>
-      <p class="company-meta">
-        ${escapeHtml(company.address)}<br/>
-        Phone: ${escapeHtml(company.phone)} ${company.email ? `| Email: ${escapeHtml(company.email)}` : ''}<br/>
-        GSTIN: ${escapeHtml(company.gstin)} ${company.website ? `| ${escapeHtml(company.website)}` : ''}
-      </p>
-    </div>
-    <div class="logo-box">ES</div>
-  </div>
+  // ── Document definition ──
+  const docDefinition = {
+    defaultStyle: { font: 'Helvetica', fontSize: 10, color: '#1e293b' },
+    pageSize: 'A4',
+    pageMargins: [28, 28, 28, 28],
+    styles: {
+      companyName: { fontSize: 18, bold: true, color: '#1e3a8a' },
+      companyMeta: { fontSize: 9, color: '#475569', lineHeight: 1.4 },
+      docTitle: { fontSize: 14, bold: true, color: '#1e3a8a', alignment: 'center' },
+      sectionHeader: { fontSize: 10, bold: true, color: '#1e3a8a', margin: [0, 0, 0, 6] },
+      tableHeader: { bold: true, fontSize: 9, color: '#ffffff', fillColor: '#1e3a8a', alignment: 'left' },
+      label: { fontSize: 9, color: '#64748b' },
+      value: { fontSize: 9, bold: true, color: '#1e293b' },
+      totalLabel: { fontSize: 10, color: '#1e293b' },
+      totalValue: { fontSize: 10, bold: true, color: '#1e293b', alignment: 'right' },
+      grandTotalLabel: { fontSize: 10, bold: true, color: '#ffffff' },
+      grandTotalValue: { fontSize: 10, bold: true, color: '#ffffff', alignment: 'right' },
+    },
+    content: [
+      // ── Header: Company Info + Logo Box ──
+      {
+        columns: [
+          {
+            width: '*',
+            stack: [
+              { text: safe(company.companyName), style: 'companyName', margin: [0, 0, 0, 4] },
+              {
+                text: [
+                  safe(company.address), '\n',
+                  `Phone: ${safe(company.phone)}`,
+                  company.email ? ` | Email: ${safe(company.email)}` : '',
+                  '\n',
+                  `GSTIN: ${safe(company.gstin)}`,
+                  company.website ? ` | ${safe(company.website)}` : '',
+                ].join(''),
+                style: 'companyMeta',
+              },
+            ],
+          },
+          {
+            width: 54,
+            stack: [
+              {
+                canvas: [
+                  { type: 'rect', x: 0, y: 0, w: 54, h: 54, r: 8, color: '#1e3a8a' },
+                ],
+              },
+              {
+                text: 'ES',
+                fontSize: 18,
+                bold: true,
+                color: '#ffffff',
+                alignment: 'center',
+                relativePosition: { x: 0, y: -40 },
+              },
+            ],
+            alignment: 'right',
+          },
+        ],
+        margin: [0, 0, 0, 10],
+      },
 
-  <div class="title">OUTWARD PCB DELIVERY CHALLAN</div>
+      // ── Divider line ──
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 539, y2: 0, lineWidth: 2.5, lineColor: '#1e3a8a' }], margin: [0, 0, 0, 10] },
 
-  <div class="two-col">
-    <div class="col">
-      <h4>Customer Details</h4>
-      <div class="row"><span class="label">Company</span><span class="value">${escapeHtml(dispatch.company_name)}</span></div>
-      <div class="row"><span class="label">Address</span><span class="value">${escapeHtml(dispatch.company_address)}</span></div>
-      <div class="row"><span class="label">Phone</span><span class="value">${escapeHtml(dispatch.phone_no)}</span></div>
-      <div class="row"><span class="label">GSTIN</span><span class="value">${escapeHtml(dispatch.gstin)}</span></div>
-    </div>
-    <div class="col">
-      <h4>Dispatch Details</h4>
-      <div class="row"><span class="label">Challan No.</span><span class="value">${escapeHtml(dispatch.dc_no)}</span></div>
-      <div class="row"><span class="label">Challan Date</span><span class="value">${formatDate(dispatch.challan_date)}</span></div>
-      <div class="row"><span class="label">Lot No.</span><span class="value">${escapeHtml(dispatch.lot_no)}</span></div>
-      <div class="row"><span class="label">Vehicle No.</span><span class="value">${escapeHtml(dispatch.vehicle_no || '—')}</span></div>
-      <div class="row"><span class="label">Courier Partner</span><span class="value">${escapeHtml(dispatch.courier_partner || '—')}</span></div>
-    </div>
-  </div>
+      // ── Document Title ──
+      {
+        text: 'OUTWARD PCB DELIVERY CHALLAN',
+        style: 'docTitle',
+        margin: [0, 4, 0, 14],
+      },
 
-  <table>
-    <thead>
-      <tr>
-        <th>Sr</th><th>Item Code</th><th>Product</th><th>HSN</th><th>Unit</th><th>Status</th>
-        <th style="text-align:right;">Qty</th><th style="text-align:right;">Rate</th><th style="text-align:right;">Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rowsHtml}
-    </tbody>
-  </table>
+      // ── Customer + Dispatch Details (two columns) ──
+      {
+        columns: [
+          {
+            width: '50%',
+            stack: [
+              { text: 'CUSTOMER DETAILS', style: 'sectionHeader' },
+              { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 250, y2: 0, lineWidth: 0.5, lineColor: '#cbd5e1' }], margin: [0, 0, 0, 6] },
+              buildInfoRow('Company', safe(dispatch.company_name)),
+              buildInfoRow('Address', safe(dispatch.company_address)),
+              buildInfoRow('Phone', safe(dispatch.phone_no)),
+              buildInfoRow('GSTIN', safe(dispatch.gstin)),
+            ],
+            margin: [0, 0, 10, 0],
+          },
+          {
+            width: '50%',
+            stack: [
+              { text: 'DISPATCH DETAILS', style: 'sectionHeader' },
+              { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 250, y2: 0, lineWidth: 0.5, lineColor: '#cbd5e1' }], margin: [0, 0, 0, 6] },
+              buildInfoRow('Challan No.', safe(dispatch.dc_no)),
+              buildInfoRow('Challan Date', formatDate(dispatch.challan_date)),
+              buildInfoRow('Lot No.', safe(dispatch.lot_no)),
+              buildInfoRow('Vehicle No.', safe(dispatch.vehicle_no || '—')),
+              buildInfoRow('Courier Partner', safe(dispatch.courier_partner || '—')),
+            ],
+          },
+        ],
+        margin: [0, 0, 0, 16],
+      },
 
-  <div class="totals-box">
-    <div class="totals-table">
-      <div class="trow"><span>Number of Products</span><span>${numProducts}</span></div>
-      <div class="trow"><span>Total OK Qty</span><span>${okQty}</span></div>
-      <div class="trow"><span>Total Scrap Qty</span><span>${scrapQty}</span></div>
-      <div class="trow"><span>Grand Total Qty / Amount</span><span>${grandQty} / ₹${formatCurrency(dispatch.total_amount)}</span></div>
-    </div>
-  </div>
+      // ── Items Table ──
+      {
+        table: {
+          headerRows: 1,
+          widths: [22, 60, '*', 48, 32, 42, 36, 50, 56],
+          body: [tableHeader, ...tableRows],
+        },
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => '#cbd5e1',
+          vLineColor: () => '#cbd5e1',
+          paddingLeft: () => 6,
+          paddingRight: () => 6,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
+        },
+        margin: [0, 0, 0, 14],
+      },
 
-  ${dispatch.remarks ? `<div class="remarks-box"><strong>Remarks:</strong> ${escapeHtml(dispatch.remarks)}</div>` : ''}
+      // ── Totals Box (right-aligned) ──
+      {
+        columns: [
+          { width: '*', text: '' },
+          {
+            width: 260,
+            table: {
+              widths: ['*', 'auto'],
+              body: [
+                [
+                  { text: 'Number of Products', style: 'totalLabel' },
+                  { text: String(numProducts), style: 'totalValue' },
+                ],
+                [
+                  { text: 'Total OK Qty', style: 'totalLabel' },
+                  { text: String(okQty), style: 'totalValue' },
+                ],
+                [
+                  { text: 'Total Scrap Qty', style: 'totalLabel' },
+                  { text: String(scrapQty), style: 'totalValue' },
+                ],
+                [
+                  { text: 'Grand Total Qty / Amount', style: 'grandTotalLabel', fillColor: '#1e3a8a' },
+                  { text: `${grandQty} / ₹${formatCurrency(dispatch.total_amount)}`, style: 'grandTotalValue', fillColor: '#1e3a8a' },
+                ],
+              ],
+            },
+            layout: {
+              hLineWidth: () => 0.5,
+              vLineWidth: () => 0,
+              hLineColor: () => '#e2e8f0',
+              paddingLeft: () => 10,
+              paddingRight: () => 10,
+              paddingTop: () => 5,
+              paddingBottom: () => 5,
+            },
+          },
+        ],
+        margin: [0, 0, 0, 14],
+      },
 
-  <div class="terms-box">
-    <h4>Terms &amp; Conditions</h4>
-    <ol>${termsHtml}</ol>
-  </div>
+      // ── Remarks (conditional) ──
+      ...(dispatch.remarks
+        ? [
+            {
+              text: [
+                { text: 'Remarks: ', bold: true },
+                safe(dispatch.remarks),
+              ],
+              fontSize: 10,
+              color: '#92400e',
+              background: '#fffbeb',
+              margin: [0, 0, 0, 14],
+            },
+          ]
+        : []),
 
-  <div class="sign-area">
-    <div class="sign-box">
-      <div class="sign-line">Receiver Signature &amp; Date</div>
-    </div>
-    <div class="sign-box">
-      <div class="sign-line">Authorized Signatory — ${escapeHtml(company.companyName)} (Company Stamp)</div>
-    </div>
-  </div>
+      // ── Terms & Conditions ──
+      { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 539, y2: 0, lineWidth: 1.5, lineColor: '#cbd5e1' }], margin: [0, 0, 0, 8] },
+      { text: 'Terms & Conditions', fontSize: 10, bold: true, color: '#1e3a8a', margin: [0, 0, 0, 6] },
+      { text: terms, fontSize: 9, color: '#475569', lineHeight: 1.5, margin: [0, 0, 0, 20] },
 
-</body>
-</html>`;
+      // ── Signature Area ──
+      {
+        columns: [
+          {
+            width: '45%',
+            stack: [
+              { text: '', margin: [0, 40, 0, 0] },
+              { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 0.8, lineColor: '#1e293b' }] },
+              { text: 'Receiver Signature & Date', fontSize: 9, bold: true, alignment: 'center', margin: [0, 6, 0, 0] },
+            ],
+          },
+          { width: '*', text: '' },
+          {
+            width: '45%',
+            stack: [
+              { text: '', margin: [0, 40, 0, 0] },
+              { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 0.8, lineColor: '#1e293b' }] },
+              { text: `Authorized Signatory — ${safe(company.companyName)} (Company Stamp)`, fontSize: 9, bold: true, alignment: 'center', margin: [0, 6, 0, 0] },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  return docDefinition;
 }
 
-let sharedBrowser = null;
-async function getBrowser() {
-  if (sharedBrowser) return sharedBrowser;
-  sharedBrowser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-  return sharedBrowser;
+// Helper to build a label/value row for the info sections
+function buildInfoRow(label, value) {
+  return {
+    columns: [
+      { width: 90, text: label, style: 'label' },
+      { width: '*', text: value, style: 'value' },
+    ],
+    margin: [0, 0, 0, 3],
+  };
 }
 
 // Generates the PDF file on disk and returns its path.
 async function generatePdfFile(dispatch) {
-  const html = buildChallanHtml(dispatch);
-  const browser = await getBrowser();
-  const page = await browser.newPage();
-  try {
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    const fileName = `${dispatch.dc_no.replace(/\//g, '-')}.pdf`;
-    const filePath = path.join(PDF_DIR, fileName);
-    await page.pdf({
-      path: filePath,
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
-    });
-    return { filePath, fileName };
-  } finally {
-    await page.close();
-  }
+  const docDefinition = buildDocDefinition(dispatch);
+  const fileName = `${dispatch.dc_no.replace(/\//g, '-')}.pdf`;
+  const filePath = path.join(PDF_DIR, fileName);
+
+  return new Promise((resolve, reject) => {
+    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+    const writeStream = fs.createWriteStream(filePath);
+    pdfDoc.pipe(writeStream);
+    pdfDoc.end();
+    writeStream.on('finish', () => resolve({ filePath, fileName }));
+    writeStream.on('error', reject);
+  });
 }
 
 // POST /api/outward/generate-document  { dispatchId }
@@ -251,5 +375,4 @@ exports.downloadDocument = async (req, res) => {
   }
 };
 
-module.exports.buildChallanHtml = buildChallanHtml;
 module.exports.generatePdfFile = generatePdfFile;
