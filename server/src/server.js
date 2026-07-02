@@ -56,6 +56,55 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ── Email Config Diagnostic (helps debug Render env vars) ──
+app.get('/api/health/email-config', async (req, res) => {
+  const mask = (val) => {
+    if (!val) return '❌ NOT SET';
+    if (val.length <= 8) return val.slice(0, 2) + '***';
+    return val.slice(0, 6) + '...' + val.slice(-4) + ` (${val.length} chars)`;
+  };
+
+  const config = {
+    gmail: {
+      GMAIL_CLIENT_ID: mask(process.env.GMAIL_CLIENT_ID),
+      GMAIL_CLIENT_SECRET: mask(process.env.GMAIL_CLIENT_SECRET),
+      GMAIL_REFRESH_TOKEN: mask(process.env.GMAIL_REFRESH_TOKEN),
+      GMAIL_USER: process.env.GMAIL_USER || '❌ NOT SET',
+    },
+    resend: {
+      RESEND_API_KEY: mask(process.env.RESEND_API_KEY),
+    },
+    smtp: {
+      SMTP_HOST: process.env.SMTP_HOST || '❌ NOT SET',
+      SMTP_USER: process.env.SMTP_USER || '❌ NOT SET',
+    },
+  };
+
+  // Quick Gmail token test
+  if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN) {
+    try {
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: process.env.GMAIL_CLIENT_ID,
+          client_secret: process.env.GMAIL_CLIENT_SECRET,
+          refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+          grant_type: 'refresh_token',
+        }),
+      });
+      const data = await tokenRes.json();
+      config.gmail.tokenTest = data.access_token ? '✅ Token OK' : `❌ ${data.error}: ${data.error_description}`;
+    } catch (e) {
+      config.gmail.tokenTest = `❌ Error: ${e.message}`;
+    }
+  } else {
+    config.gmail.tokenTest = '⏭️ Skipped (not configured)';
+  }
+
+  res.json(config);
+});
+
 // ── Global Error Handler ──
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err.stack);

@@ -173,15 +173,20 @@ exports.sendReport = async (req, res) => {
 
     // ── Strategy 1: Try Gmail API (HTTPS — works everywhere, sends to anyone) ──
     if (isGmailApiConfigured()) {
-      console.log('📧 Sending email via Gmail API...');
-      await sendViaGmailApi({
-        from: process.env.GMAIL_USER,
-        to: to.trim(),
-        subject,
-        html,
-        text,
-      });
-      return res.json({ message: 'Email successfully sent via Gmail API.' });
+      try {
+        console.log('📧 Sending email via Gmail API...');
+        await sendViaGmailApi({
+          from: process.env.GMAIL_USER,
+          to: to.trim(),
+          subject,
+          html,
+          text,
+        });
+        return res.json({ message: 'Email successfully sent via Gmail API.' });
+      } catch (gmailErr) {
+        console.warn('⚠️ Gmail API failed, falling back to next provider:', gmailErr.message);
+        // Fall through to next strategy
+      }
     }
 
     // ── Strategy 2: Try Resend (HTTP API — works on Render free tier) ──
