@@ -20,7 +20,10 @@ let tokenExpiresAt = 0;
 
 // ── Get a fresh access token using the refresh token ──
 async function getAccessToken() {
-  const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN } = process.env;
+  const GMAIL_CLIENT_ID = process.env.GMAIL_CLIENT_ID?.trim();
+  const GMAIL_CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET?.trim();
+  const GMAIL_REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN?.trim();
+  
   if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) return null;
 
   // Reuse cached token if it hasn't expired (with 60s buffer)
@@ -171,7 +174,9 @@ async function sendViaGmailApi({ from, to, subject, html, text, attachments }) {
 
 // ── Check if Gmail API is configured ──
 function isGmailApiConfigured() {
-  const { GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN } = process.env;
+  const GMAIL_CLIENT_ID = process.env.GMAIL_CLIENT_ID?.trim();
+  const GMAIL_CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET?.trim();
+  const GMAIL_REFRESH_TOKEN = process.env.GMAIL_REFRESH_TOKEN?.trim();
   return !!(GMAIL_CLIENT_ID && GMAIL_CLIENT_SECRET && GMAIL_REFRESH_TOKEN);
 }
 
