@@ -1,10 +1,11 @@
 // ─── Email Controller ───
 // Sends the PCB Verification Report via email.
-// Supports two providers:
-//   1. Resend (HTTP API) — works on Render free tier (set RESEND_API_KEY)
-//   2. Nodemailer SMTP   — works locally (set SMTP_HOST, SMTP_USER, SMTP_PASS)
-// Resend is preferred when RESEND_API_KEY is set; SMTP is the fallback.
+// Supports three providers (tried in order):
+//   1. Gmail API (HTTPS)  — works everywhere, sends to anyone (set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN)
+//   2. Resend (HTTP API)  — works on Render free tier (set RESEND_API_KEY)
+//   3. Nodemailer SMTP    — works locally (set SMTP_HOST, SMTP_USER, SMTP_PASS)
 const nodemailer = require('nodemailer');
+const { sendViaGmailApi, isGmailApiConfigured } = require('../utils/gmailApi');
 
 let cachedTransporter = null;
 
@@ -168,13 +169,24 @@ exports.sendReport = async (req, res) => {
     const html = buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows });
     const text = buildPlainTextReport({ brand, challanNo, challanDate, lotNo, rows });
     const subject = `PCB Verification Report - ${challanNo}`;
-    const fromAddress = process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+    const fromAddress = process.env.GMAIL_USER || process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
 
-    // ── Strategy 1: Try Resend (HTTP API — works on Render free tier) ──
+    // ── Strategy 1: Try Gmail API (HTTPS — works everywhere, sends to anyone) ──
+    if (isGmailApiConfigured()) {
+      console.log('📧 Sending email via Gmail API...');
+      await sendViaGmailApi({
+        from: process.env.GMAIL_USER,
+        to: to.trim(),
+        subject,
+        html,
+        text,
+      });
+      return res.json({ message: 'Email successfully sent via Gmail API.' });
+    }
+
+    // ── Strategy 2: Try Resend (HTTP API — works on Render free tier) ──
     if (process.env.RESEND_API_KEY) {
       console.log('📧 Sending email via Resend API...');
-      // Resend free tier only allows sending from onboarding@resend.dev
-      // Set RESEND_FROM only if you've verified a custom domain in Resend
       const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
       await sendViaResend({
         to: to.trim(),
@@ -186,11 +198,11 @@ exports.sendReport = async (req, res) => {
       return res.json({ message: 'Email successfully sent via Resend.' });
     }
 
-    // ── Strategy 2: Fallback to SMTP (works locally) ──
+    // ── Strategy 3: Fallback to SMTP (works locally) ──
     const transporter = getTransporter();
     if (!transporter) {
       return res.status(503).json({
-        error: 'Email sending is not configured. Set RESEND_API_KEY (for cloud) or SMTP_HOST/SMTP_USER/SMTP_PASS (for local).',
+        error: 'Email sending is not configured. Set GMAIL_CLIENT_ID/GMAIL_CLIENT_SECRET/GMAIL_REFRESH_TOKEN (recommended), or RESEND_API_KEY, or SMTP_HOST/SMTP_USER/SMTP_PASS.',
       });
     }
 
