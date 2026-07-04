@@ -71,7 +71,7 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username },
+      { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
@@ -79,7 +79,7 @@ exports.login = async (req, res) => {
     res.json({
       message: 'Login successful.',
       token,
-      user: { id: user.id, username: user.username },
+      user: { id: user.id, username: user.username, role: user.role },
     });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error.' });
@@ -107,8 +107,43 @@ exports.forgotPassword = async (req, res) => {
 exports.approveUser = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query('UPDATE users SET is_approved = true WHERE id = $1', [id]);
-    res.status(200).json({ message: 'User approved.' });
+    const result = await db.query(
+      'UPDATE users SET is_approved = true WHERE id = $1 RETURNING id, username',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    res.status(200).json({ message: 'User approved.', user: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+// GET /api/auth/users — list all users (admin only)
+exports.listUsers = async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT id, username, is_approved, role, created_at FROM users ORDER BY created_at DESC'
+    );
+    res.json({ users: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+// DELETE /api/auth/users/:id — reject/delete a user (admin only)
+exports.rejectUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      'DELETE FROM users WHERE id = $1 AND role != $2 RETURNING id, username',
+      [id, 'admin']
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found or cannot delete admin.' });
+    }
+    res.json({ message: 'User rejected and removed.', user: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error.' });
   }

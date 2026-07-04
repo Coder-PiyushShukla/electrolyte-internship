@@ -1,4 +1,4 @@
-import { FiZap, FiLogOut, FiUser } from 'react-icons/fi';
+import { FiZap, FiLogOut, FiUser, FiShield } from 'react-icons/fi';
 import { NavLink } from 'react-router-dom';
 
 export default function Navbar({ user, onLogout }) {
@@ -41,6 +41,15 @@ export default function Navbar({ user, onLogout }) {
             >
               Outward
             </NavLink>
+            {user?.role === 'admin' && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive} flex items-center gap-1.5`}
+              >
+                <FiShield className="w-3.5 h-3.5 text-amber-400" />
+                Admin
+              </NavLink>
+            )}
           </div>
 
           {/* User Menu */}
@@ -80,6 +89,15 @@ export default function Navbar({ user, onLogout }) {
           >
             Outward
           </NavLink>
+          {user?.role === 'admin' && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive} flex items-center gap-1.5`}
+            >
+              <FiShield className="w-3.5 h-3.5 text-amber-400" />
+              Admin
+            </NavLink>
+          )}
         </div>
       </div>
     </nav>

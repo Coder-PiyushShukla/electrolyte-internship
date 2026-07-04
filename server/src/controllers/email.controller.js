@@ -226,3 +226,36 @@ exports.sendReport = async (req, res) => {
     res.status(500).json({ error: `Failed to send email: ${err.message}` });
   }
 };
+
+// ── Generic sendEmail helper (used by auth.controller for approval notifications) ──
+async function sendEmail({ to, subject, text, html }) {
+  const fromAddress = process.env.GMAIL_USER || process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+
+  // Strategy 1: Gmail API
+  if (isGmailApiConfigured()) {
+    try {
+      await sendViaGmailApi({ from: process.env.GMAIL_USER, to, subject, html: html || text, text });
+      return;
+    } catch (err) {
+      console.warn('⚠️ sendEmail: Gmail API failed, trying next:', err.message);
+    }
+  }
+
+  // Strategy 2: Resend
+  if (process.env.RESEND_API_KEY) {
+    const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
+    await sendViaResend({ to, from: resendFrom, subject, html: html || text, text });
+    return;
+  }
+
+  // Strategy 3: SMTP
+  const transporter = getTransporter();
+  if (transporter) {
+    await transporter.sendMail({ from: fromAddress, to, subject, text, html: html || text });
+    return;
+  }
+
+  console.warn('⚠️ sendEmail: No email provider configured, skipping notification.');
+}
+
+exports.sendEmail = sendEmail;

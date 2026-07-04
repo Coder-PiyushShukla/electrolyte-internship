@@ -7,6 +7,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import MainPage from './pages/MainPage';
 import InwardPage from './pages/InwardPage';
 import OutwardPage from './pages/OutwardPage';
+import AdminPage from './pages/AdminPage';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -65,6 +66,9 @@ function App() {
               <Route path="/" element={<MainPage user={user} />} />
               <Route path="/inward" element={<InwardPage user={user} />} />
               <Route path="/outward" element={<OutwardPage user={user} />} />
+              {user?.role === 'admin' && (
+                <Route path="/admin" element={<AdminPage />} />
+              )}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
