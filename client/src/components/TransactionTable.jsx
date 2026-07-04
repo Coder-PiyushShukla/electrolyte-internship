@@ -1,8 +1,23 @@
-import { FiTrash2, FiArrowDown, FiArrowUp, FiChevronDown } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiTrash2, FiArrowDown, FiArrowUp, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
 
-export default function TransactionTable({ transactions, filters, onFilterChange, onDelete }) {
+const INITIAL_VISIBLE = 8;
+const STEP = 10;
+
+export default function TransactionTable({ transactions, filters, onFilterChange, onDelete, canDelete = false }) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+
+  // Collapse back to the initial page whenever the list changes (e.g. a filter).
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE);
+  }, [filters.brand, filters.type, transactions.length]);
+
+  const visibleTransactions = transactions.slice(0, visibleCount);
+  const hasMore = visibleCount < transactions.length;
+  const isExpanded = visibleCount > INITIAL_VISIBLE;
+
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this transaction?')) return;
     try {
@@ -70,13 +85,13 @@ export default function TransactionTable({ transactions, filters, onFilterChange
               <th className="px-4 py-3 font-medium text-right">Qty</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Remarks</th>
-              <th className="px-4 py-3 font-medium text-center">Action</th>
+              {canDelete && <th className="px-4 py-3 font-medium text-center">Action</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-800/50">
             {transactions.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-surface-500">
+                <td colSpan={canDelete ? 9 : 8} className="px-4 py-12 text-center text-surface-500">
                   <div className="flex flex-col items-center gap-2">
                     <FiArrowDown className="w-8 h-8 text-surface-700" />
                     <p>No transactions found.</p>
@@ -85,7 +100,7 @@ export default function TransactionTable({ transactions, filters, onFilterChange
                 </td>
               </tr>
             ) : (
-              transactions.map((txn) => (
+              visibleTransactions.map((txn) => (
                 <tr
                   key={txn.id}
                   className="hover:bg-surface-800/30 transition-colors duration-150"
@@ -130,15 +145,17 @@ export default function TransactionTable({ transactions, filters, onFilterChange
                     )}
                   </td>
                   <td className="px-4 py-3 text-surface-400 text-xs max-w-[150px] truncate">{txn.remarks || '—'}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => handleDelete(txn.id)}
-                      className="p-1.5 text-surface-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-150 cursor-pointer"
-                      title="Delete transaction"
-                    >
-                      <FiTrash2 className="w-4 h-4" />
-                    </button>
-                  </td>
+                  {canDelete && (
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleDelete(txn.id)}
+                        className="p-1.5 text-surface-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-150 cursor-pointer"
+                        title="Delete transaction (admin)"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -146,10 +163,42 @@ export default function TransactionTable({ transactions, filters, onFilterChange
         </table>
       </div>
 
-      {/* Footer count */}
+      {/* Footer: count + show more / less */}
       {transactions.length > 0 && (
-        <div className="px-4 py-3 border-t border-surface-800 text-xs text-surface-500">
-          Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+        <div className="px-4 py-3 border-t border-surface-800 flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs text-surface-500">
+            Showing {visibleTransactions.length} of {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+          </span>
+          {(hasMore || isExpanded) && (
+            <div className="flex items-center gap-2">
+              {hasMore && (
+                <button
+                  onClick={() => setVisibleCount((c) => Math.min(c + STEP, transactions.length))}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-400 bg-brand-500/10 border border-brand-500/25 rounded-lg hover:bg-brand-500/20 transition-all duration-200 cursor-pointer"
+                >
+                  <FiChevronDown className="w-3.5 h-3.5" />
+                  Show more
+                </button>
+              )}
+              {hasMore && (
+                <button
+                  onClick={() => setVisibleCount(transactions.length)}
+                  className="px-3 py-1.5 text-xs font-medium text-surface-400 hover:text-white hover:bg-surface-800 rounded-lg transition-all duration-200 cursor-pointer"
+                >
+                  Show all
+                </button>
+              )}
+              {isExpanded && (
+                <button
+                  onClick={() => setVisibleCount(INITIAL_VISIBLE)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-surface-400 hover:text-white hover:bg-surface-800 rounded-lg transition-all duration-200 cursor-pointer"
+                >
+                  <FiChevronUp className="w-3.5 h-3.5" />
+                  Show less
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

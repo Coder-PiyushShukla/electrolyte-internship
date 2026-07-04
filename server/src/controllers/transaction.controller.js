@@ -52,6 +52,27 @@ exports.getSummary = async (req, res) => {
   }
 };
 
+// GET /api/transactions/analytics/monthly
+// OK vs Scrap quantities per month, derived from out_ward transactions.
+exports.getMonthlyStatus = async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        to_char(date_trunc('month', transaction_date), 'YYYY-MM') AS month,
+        COALESCE(SUM(CASE WHEN status = 'ok'    THEN quantity ELSE 0 END), 0)::int AS ok,
+        COALESCE(SUM(CASE WHEN status = 'scrap' THEN quantity ELSE 0 END), 0)::int AS scrap
+      FROM pcb_transactions
+      WHERE transaction_type = 'out_ward'
+      GROUP BY 1
+      ORDER BY 1
+    `);
+    res.json({ data: result.rows });
+  } catch (err) {
+    console.error('Get monthly status error:', err);
+    res.status(500).json({ error: 'Failed to fetch monthly status.' });
+  }
+};
+
 // POST /api/transactions  (single manual entry)
 exports.create = async (req, res) => {
   try {
@@ -94,9 +115,13 @@ exports.create = async (req, res) => {
   }
 };
 
-// DELETE /api/transactions/:id
+// DELETE /api/transactions/:id  (admin only — transaction history is otherwise immutable)
 exports.remove = async (req, res) => {
   try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Only an admin can delete transaction history.' });
+    }
+
     const { id } = req.params;
     const result = await db.query('DELETE FROM pcb_transactions WHERE id = $1 RETURNING *', [id]);
 

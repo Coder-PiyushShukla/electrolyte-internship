@@ -9,6 +9,7 @@ router.use(auth);
 
 router.get('/',        transactionCtrl.getAll);
 router.get('/summary', transactionCtrl.getSummary);
+router.get('/analytics/monthly', transactionCtrl.getMonthlyStatus);
 router.post('/',       transactionCtrl.create);
 router.delete('/:id',  transactionCtrl.remove);
 
