@@ -134,7 +134,7 @@ exports.remove = async (req, res) => {
     await createNotification({
       type: TYPES.TRANSACTION_DELETED,
       title: 'Transaction deleted',
-      message: `${req.user.username} deleted an ${txn.transaction_type === 'in_ward' ? 'in-ward' : 'out-ward'} transaction: ${txn.part_code} (qty ${txn.quantity}, DC ${txn.dc_number}).`,
+      message: `${req.user.username} deleted an ${txn.transaction_type === 'in_ward' ? 'inward' : 'outward'} transaction: ${txn.part_code} (qty ${txn.quantity}, DC ${txn.dc_number}).`,
       actor: req.user.username,
       audience: 'admin',
       metadata: { part_code: txn.part_code, quantity: txn.quantity, dc_number: txn.dc_number, brand: txn.brand_name },
