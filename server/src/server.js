@@ -50,6 +50,7 @@ app.use('/api/lot-counter',  require('./routes/lotCounter.routes'));
 app.use('/api/email',        require('./routes/email.routes'));
 app.use('/api/inward',       require('./routes/inward.routes'));
 app.use('/api/outward',      require('./routes/outward.routes'));
+app.use('/api/notifications', require('./routes/notification.routes'));
 
 // ── Health Check ──
 app.get('/api/health', (req, res) => {

@@ -6,6 +6,20 @@
 //   3. Nodemailer SMTP    — works locally (set SMTP_HOST, SMTP_USER, SMTP_PASS)
 const nodemailer = require('nodemailer');
 const { sendViaGmailApi, isGmailApiConfigured } = require('../utils/gmailApi');
+const { createNotification, TYPES } = require('../services/notificationService');
+
+// Record a "report emailed" notification (best-effort; never blocks the response).
+async function notifyReportSent({ actor, to, challanNo, brand, lotNo, provider }) {
+  await createNotification({
+    type: TYPES.EMAIL_REPORT_SENT,
+    title: 'Verification report emailed',
+    message: `${actor || 'A user'} sent the PCB verification report for challan ${challanNo} to ${to} (via ${provider}).`,
+    actor,
+    recipient: to,
+    audience: 'all',
+    metadata: { challanNo, brand, lotNo, provider },
+  });
+}
 
 let cachedTransporter = null;
 
@@ -166,6 +180,8 @@ exports.sendReport = async (req, res) => {
       return res.status(400).json({ error: 'Challan number and at least one item row are required.' });
     }
 
+    const actor = req.user?.username;
+    const recipient = to.trim();
     const html = buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows });
     const text = buildPlainTextReport({ brand, challanNo, challanDate, lotNo, rows });
     const subject = `PCB Verification Report - ${challanNo}`;
@@ -182,6 +198,7 @@ exports.sendReport = async (req, res) => {
           html,
           text,
         });
+        await notifyReportSent({ actor, to: recipient, challanNo, brand, lotNo, provider: 'Gmail API' });
         return res.json({ message: 'Email successfully sent via Gmail API.' });
       } catch (gmailErr) {
         console.warn('⚠️ Gmail API failed, falling back to next provider:', gmailErr.message);
@@ -200,6 +217,7 @@ exports.sendReport = async (req, res) => {
         html,
         text,
       });
+      await notifyReportSent({ actor, to: recipient, challanNo, brand, lotNo, provider: 'Resend' });
       return res.json({ message: 'Email successfully sent via Resend.' });
     }
 
@@ -220,9 +238,20 @@ exports.sendReport = async (req, res) => {
       html,
     });
 
+    await notifyReportSent({ actor, to: recipient, challanNo, brand, lotNo, provider: 'SMTP' });
     res.json({ message: 'Email successfully sent via SMTP.' });
   } catch (err) {
     console.error('Send email error:', err);
+    const { to, challanNo } = req.body || {};
+    await createNotification({
+      type: TYPES.EMAIL_FAILED,
+      title: 'Report email failed',
+      message: `${req.user?.username || 'A user'} tried to email the verification report for challan ${challanNo || '?'} to ${to || '?'} but it failed: ${err.message}`,
+      actor: req.user?.username,
+      recipient: to,
+      audience: 'admin',
+      metadata: { challanNo, error: err.message },
+    });
     res.status(500).json({ error: `Failed to send email: ${err.message}` });
   }
 };

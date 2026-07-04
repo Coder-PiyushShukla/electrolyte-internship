@@ -10,6 +10,20 @@ const db = require('../config/db');
 const { getCompany } = require('../config/companyData');
 const { generatePdfFile } = require('./outwardDocument.controller');
 const { sendViaGmailApi, isGmailApiConfigured } = require('../utils/gmailApi');
+const { createNotification, TYPES } = require('../services/notificationService');
+
+// Record a "challan emailed" notification (best-effort; never blocks the response).
+async function notifyChallanSent({ actor, to, dispatch, provider }) {
+  await createNotification({
+    type: TYPES.EMAIL_CHALLAN_SENT,
+    title: 'Delivery challan emailed',
+    message: `${actor || 'A user'} sent the outward delivery challan ${dispatch.dc_no} to ${to} (via ${provider}).`,
+    actor,
+    recipient: to,
+    audience: 'all',
+    metadata: { dispatchId: dispatch.id, dcNo: dispatch.dc_no, customer: dispatch.company_name, provider },
+  });
+}
 
 let cachedTransporter = null;
 
@@ -146,6 +160,8 @@ exports.sendOutwardEmail = async (req, res) => {
       await db.query('UPDATE outward_dispatches SET pdf_path = $1 WHERE id = $2', [pdfPath, dispatchId]);
     }
 
+    const actor = req.user?.username;
+    const recipient = to.trim();
     const html = buildSummaryHtml(dispatch);
     const pdfFilename = `${dispatch.dc_no.replace(/\//g, '-')}.pdf`;
     const subject = `Outward PCB Delivery Challan - ${dispatch.dc_no}`;
@@ -162,6 +178,7 @@ exports.sendOutwardEmail = async (req, res) => {
           html,
           attachments: [{ filename: pdfFilename, path: pdfPath }],
         });
+        await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'Gmail API' });
         return res.json({ message: 'Email successfully sent via Gmail API.' });
       } catch (gmailErr) {
         console.warn('⚠️ Gmail API failed, falling back to next provider:', gmailErr.message);
@@ -180,6 +197,7 @@ exports.sendOutwardEmail = async (req, res) => {
         html,
         attachments: [{ filename: pdfFilename, path: pdfPath }],
       });
+      await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'Resend' });
       return res.json({ message: 'Email successfully sent via Resend.' });
     }
 
@@ -202,9 +220,20 @@ exports.sendOutwardEmail = async (req, res) => {
       ],
     });
 
+    await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'SMTP' });
     res.json({ message: 'Email successfully sent via SMTP.' });
   } catch (err) {
     console.error('Send outward email error:', err);
+    const { dispatchId, to } = req.body || {};
+    await createNotification({
+      type: TYPES.EMAIL_FAILED,
+      title: 'Challan email failed',
+      message: `${req.user?.username || 'A user'} tried to email the outward challan (dispatch #${dispatchId || '?'}) to ${to || '?'} but it failed: ${err.message}`,
+      actor: req.user?.username,
+      recipient: to,
+      audience: 'admin',
+      metadata: { dispatchId, error: err.message },
+    });
     res.status(500).json({ error: `Failed to send email: ${err.message}` });
   }
 };
