@@ -1,5 +1,6 @@
 // ─── Transaction Controller ───
 const db = require('../config/db');
+const { createNotification, TYPES } = require('../services/notificationService');
 
 // GET /api/transactions?brand=Atomberg&type=in_ward
 exports.getAll = async (req, res) => {
@@ -129,7 +130,17 @@ exports.remove = async (req, res) => {
       return res.status(404).json({ error: 'Transaction not found.' });
     }
 
-    res.json({ message: 'Transaction deleted.', data: result.rows[0] });
+    const txn = result.rows[0];
+    await createNotification({
+      type: TYPES.TRANSACTION_DELETED,
+      title: 'Transaction deleted',
+      message: `${req.user.username} deleted an ${txn.transaction_type === 'in_ward' ? 'inward' : 'outward'} transaction: ${txn.part_code} (qty ${txn.quantity}, DC ${txn.dc_number}).`,
+      actor: req.user.username,
+      audience: 'admin',
+      metadata: { part_code: txn.part_code, quantity: txn.quantity, dc_number: txn.dc_number, brand: txn.brand_name },
+    });
+
+    res.json({ message: 'Transaction deleted.', data: txn });
   } catch (err) {
     console.error('Delete transaction error:', err);
     res.status(500).json({ error: 'Failed to delete transaction.' });
