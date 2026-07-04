@@ -2,7 +2,7 @@
 // Maps a notification `type` to an icon + colour, and formats relative time.
 import {
   FiMail, FiSend, FiAlertTriangle, FiUserPlus, FiUserCheck,
-  FiUserX, FiTruck, FiInbox, FiBell,
+  FiUserX, FiTruck, FiInbox, FiBell, FiTrash2,
 } from 'react-icons/fi';
 
 const META = {
@@ -14,6 +14,7 @@ const META = {
   user_rejected: { Icon: FiUserX, color: 'text-red-400', bg: 'bg-red-500/15' },
   dispatch_created: { Icon: FiTruck, color: 'text-emerald-400', bg: 'bg-emerald-500/15' },
   inward_recorded: { Icon: FiInbox, color: 'text-brand-400', bg: 'bg-brand-500/15' },
+  transaction_deleted: { Icon: FiTrash2, color: 'text-red-400', bg: 'bg-red-500/15' },
 };
 
 export function typeMeta(type) {

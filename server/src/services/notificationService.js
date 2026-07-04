@@ -15,6 +15,7 @@ const TYPES = {
   USER_REJECTED: 'user_rejected',
   DISPATCH_CREATED: 'dispatch_created',
   INWARD_RECORDED: 'inward_recorded',
+  TRANSACTION_DELETED: 'transaction_deleted',
 };
 
 let tablesReady = false;
