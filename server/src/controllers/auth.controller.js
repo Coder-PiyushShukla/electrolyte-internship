@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { sendEmail } = require('./email.controller');
+const { createNotification, TYPES } = require('../services/notificationService');
 
 exports.register = async (req, res) => {
   try {
@@ -36,6 +37,15 @@ exports.register = async (req, res) => {
         text: `User ${username} has registered and is waiting for approval.`
       });
     }
+
+    await createNotification({
+      type: TYPES.USER_REGISTERED,
+      title: 'New user registration',
+      message: `${username} registered and is awaiting admin approval.`,
+      actor: username,
+      audience: 'admin',
+      metadata: { username, userId: result.rows[0].id },
+    });
 
     res.status(201).json({
       message: 'User registered successfully. Pending admin approval.',
@@ -114,6 +124,14 @@ exports.approveUser = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found.' });
     }
+    await createNotification({
+      type: TYPES.USER_APPROVED,
+      title: 'User approved',
+      message: `${req.user?.username || 'An admin'} approved user ${result.rows[0].username}.`,
+      actor: req.user?.username,
+      audience: 'admin',
+      metadata: { username: result.rows[0].username, userId: result.rows[0].id },
+    });
     res.status(200).json({ message: 'User approved.', user: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error.' });
@@ -143,6 +161,14 @@ exports.rejectUser = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found or cannot delete admin.' });
     }
+    await createNotification({
+      type: TYPES.USER_REJECTED,
+      title: 'User removed',
+      message: `${req.user?.username || 'An admin'} rejected/removed user ${result.rows[0].username}.`,
+      actor: req.user?.username,
+      audience: 'admin',
+      metadata: { username: result.rows[0].username },
+    });
     res.json({ message: 'User rejected and removed.', user: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error.' });

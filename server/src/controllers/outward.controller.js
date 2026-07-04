@@ -3,6 +3,7 @@ const db = require('../config/db');
 const { getFinancialYear } = require('../utils/financialYear');
 const { getCompany, getCustomer, getAllCustomers } = require('../config/companyData');
 const { getItemsForBrand, lookupDescription } = require('../config/productData');
+const { createNotification, TYPES } = require('../services/notificationService');
 
 // Ensure outward tables exist (safety net if migration wasn't run manually).
 async function ensureTables() {
@@ -324,6 +325,15 @@ exports.createDispatch = async (req, res) => {
       }
 
       await client.query('COMMIT');
+
+      await createNotification({
+        type: TYPES.DISPATCH_CREATED,
+        title: 'Outward dispatch created',
+        message: `${req.user?.username || 'A user'} created dispatch ${dcNo} for ${companyName} — ${totalQty} pcs, ₹${totalAmount}.`,
+        actor: req.user?.username,
+        audience: 'all',
+        metadata: { dispatchId: dispatch.id, dcNo, lotNo, brand, customer: companyName, totalQty, totalAmount },
+      });
 
       res.status(201).json({ message: 'Dispatch created.', data: { ...dispatch, items } });
     } catch (innerErr) {

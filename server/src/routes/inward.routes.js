@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const db = require('../config/db');
+const { createNotification, TYPES } = require('../services/notificationService');
 
 router.use(auth);
 
@@ -64,6 +65,16 @@ router.post('/record', async (req, res) => {
       }
 
       await client.query('COMMIT');
+
+      await createNotification({
+        type: TYPES.INWARD_RECORDED,
+        title: 'Inward challan recorded',
+        message: `${req.user?.username || 'A user'} recorded inward challan ${challanNo.trim()} for ${brand} — ${inserted.length} item(s).`,
+        actor: req.user?.username,
+        audience: 'all',
+        metadata: { challanNo: challanNo.trim(), brand, lotNo: lotNo || null, items: inserted.length },
+      });
+
       res.status(201).json({ message: `Inventory updated. ${inserted.length} item(s) recorded.`, data: inserted });
     } catch (err) {
       await client.query('ROLLBACK');

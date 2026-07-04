@@ -1,5 +1,6 @@
 import { FiZap, FiLogOut, FiUser, FiShield } from 'react-icons/fi';
 import { NavLink } from 'react-router-dom';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar({ user, onLogout }) {
   const linkBase = "px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200";
@@ -53,7 +54,8 @@ export default function Navbar({ user, onLogout }) {
           </div>
 
           {/* User Menu */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-surface-800/60 rounded-lg border border-surface-700/50">
               <FiUser className="w-3.5 h-3.5 text-brand-400" />
               <span className="text-sm text-surface-300 font-medium">{user?.username}</span>
