@@ -2,11 +2,13 @@ import { useState, useCallback, useEffect } from 'react';
 import {
     FiPlus, FiTrash2, FiMail, FiSave, FiClock, FiSearch,
     FiChevronDown, FiFileText, FiX, FiCheck, FiAlertTriangle,
-    FiAlertCircle, FiEye, FiHash,
+    FiAlertCircle, FiEye, FiHash, FiPlusCircle,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { lookupDescription, getItemCodes } from '../data/masterData';
 import { peekNextLotNo, incrementLotNo, sendChallanReportEmail, recordInwardInventory } from '../utils/lotAndEmail';
+import { getCustomers } from '../utils/outwardApi';
+import AddCompanyModal from './AddCompanyModal';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -250,6 +252,8 @@ function VerifyReportModal({ onClose, challanNo, emailTo, htmlBody }) {
 
 export default function ChallanVerification() {
     const [brand, setBrand] = useState('Bajaj');
+    const [companies, setCompanies] = useState([]);
+    const [showAddCompany, setShowAddCompany] = useState(false);
     const [challanNo, setChallanNo] = useState('');
     const [challanDate, setChallanDate] = useState(new Date().toISOString().split('T')[0]);
     const [lotNo, setLotNo] = useState(null); // auto-calculated, never user-editable
@@ -261,6 +265,19 @@ export default function ChallanVerification() {
     const [sendingEmail, setSendingEmail] = useState(false);
 
     const itemCodes = getItemCodes(brand);
+
+    // ── Load the shared company/brand list on mount (same source as Outward page) ──
+    useEffect(() => {
+        getCustomers()
+            .then((list) => {
+                setCompanies(list);
+                if (list.length > 0 && !list.some((c) => c.brand === brand)) {
+                    setBrand(list[0].brand);
+                }
+            })
+            .catch(() => toast.error('Failed to load company list.'));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // ── Lot No: peek the next lot number whenever the brand changes ──
     // (Feature 1) Default value conceptually starts at 0; the upcoming lot
@@ -411,6 +428,16 @@ export default function ChallanVerification() {
 
     return (
         <>
+            {showAddCompany && (
+                <AddCompanyModal
+                    onClose={() => setShowAddCompany(false)}
+                    onCreated={(created) => {
+                        setCompanies((prev) => [...prev, created]);
+                        setBrand(created.brand);
+                        setShowAddCompany(false);
+                    }}
+                />
+            )}
             {showHistory && <HistoryModal onClose={() => setShowHistory(false)} onLoad={handleLoad} />}
             {showVerify && (
                 <VerifyReportModal
@@ -451,12 +478,23 @@ export default function ChallanVerification() {
                         {/* Brand */}
                         <div>
                             <label className="block text-xs font-medium text-surface-400 mb-1.5">Brand</label>
-                            <div className="relative">
-                                <select value={brand} onChange={(e) => handleBrandChange(e.target.value)} className={selectCls}>
-                                    <option value="Bajaj">Bajaj</option>
-                                    <option value="Atomberg">Atomberg</option>
-                                </select>
-                                <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
+                            <div className="flex items-center gap-2">
+                                <div className="relative flex-1">
+                                    <select value={brand} onChange={(e) => handleBrandChange(e.target.value)} className={selectCls}>
+                                        {companies.map((c) => (
+                                            <option key={c.brand} value={c.brand}>{c.brand}</option>
+                                        ))}
+                                    </select>
+                                    <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddCompany(true)}
+                                    title="Add a new company"
+                                    className="flex items-center justify-center w-9 h-9 shrink-0 text-brand-400 bg-surface-800/60 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-brand-300 transition-all cursor-pointer"
+                                >
+                                    <FiPlusCircle className="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
                         {/* Challan No */}

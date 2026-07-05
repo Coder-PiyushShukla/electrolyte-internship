@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     FiPlus, FiTrash2, FiMail, FiSave, FiChevronDown,
-    FiCheck, FiAlertCircle, FiHash, FiDownload, FiTruck, FiPackage,
+    FiCheck, FiAlertCircle, FiHash, FiDownload, FiTruck, FiPackage, FiPlusCircle,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import {
-    getCustomers, getProducts, peekNextDc, peekNextOutwardLot,
+    getCustomers, getProducts, getCompanyInfo, peekNextDc, peekNextOutwardLot,
     checkInventory, createDispatch, generateDocument, downloadDispatchPdf, sendOutwardEmail,
 } from '../utils/outwardApi';
+import AddCompanyModal from './AddCompanyModal';
+import EwayBillModal from './EwayBillModal';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,9 +23,12 @@ function emptyItemRow() {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function OutwardForm() {
+export default function OutwardForm({ user }) {
     const [customers, setCustomers] = useState([]);
     const [brand, setBrand] = useState('');
+    const [showAddCompany, setShowAddCompany] = useState(false);
+    const [companyInfo, setCompanyInfo] = useState(null);
+    const [showEwayModal, setShowEwayModal] = useState(false);
     const [products, setProducts] = useState([]);
     const [customerInfo, setCustomerInfo] = useState(null);
 
@@ -50,6 +55,11 @@ export default function OutwardForm() {
                 if (list.length > 0) setBrand(list[0].brand);
             })
             .catch(() => toast.error('Failed to load customer list.'));
+    }, []);
+
+    // ── Load own company info (used to pre-fill E-Way Bill supplier details) ──
+    useEffect(() => {
+        getCompanyInfo().then(setCompanyInfo).catch(() => { });
     }, []);
 
     // ── Whenever brand changes: load products, customer details, next DC + Lot ──
@@ -223,9 +233,28 @@ export default function OutwardForm() {
     const readonlyCls = 'w-full bg-surface-800/30 border border-surface-700/50 text-surface-300 rounded-xl px-3 py-2 text-sm flex items-center gap-2 cursor-not-allowed';
 
     return (
-        <div className="animate-slide-up relative overflow-hidden rounded-2xl border border-surface-800 bg-surface-900/80 backdrop-blur-sm shadow-2xl">
-            {/* Accent bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-red-400 to-orange-500" />
+        <>
+            {showAddCompany && (
+                <AddCompanyModal
+                    onClose={() => setShowAddCompany(false)}
+                    onCreated={(created) => {
+                        setCustomers((prev) => [...prev, created]);
+                        setBrand(created.brand);
+                        setShowAddCompany(false);
+                    }}
+                />
+            )}
+            {showEwayModal && savedDispatch && (
+                <EwayBillModal
+                    dispatch={savedDispatch}
+                    company={companyInfo}
+                    username={user?.username}
+                    onClose={() => setShowEwayModal(false)}
+                />
+            )}
+            <div className="animate-slide-up relative overflow-hidden rounded-2xl border border-surface-800 bg-surface-900/80 backdrop-blur-sm shadow-2xl">
+                {/* Accent bar */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-red-400 to-orange-500" />
 
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-5 pb-3">
@@ -246,13 +275,23 @@ export default function OutwardForm() {
                     {/* Customer (Brand) */}
                     <div>
                         <label className="block text-xs font-medium text-surface-400 mb-1.5">Company Name *</label>
-                        <div className="relative">
-                            <select value={brand} onChange={(e) => setBrand(e.target.value)} className={selectCls}>
-                                {customers.map((c) => (
-                                    <option key={c.brand} value={c.brand}>{c.brand}</option>
-                                ))}
-                            </select>
-                            <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
+                        <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                                <select value={brand} onChange={(e) => setBrand(e.target.value)} className={selectCls}>
+                                    {customers.map((c) => (
+                                        <option key={c.brand} value={c.brand}>{c.brand}</option>
+                                    ))}
+                                </select>
+                                <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowAddCompany(true)}
+                                title="Add a new company"
+                                className="flex items-center justify-center w-9 h-9 shrink-0 text-brand-400 bg-surface-800/60 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-brand-300 transition-all cursor-pointer"
+                            >
+                                <FiPlusCircle className="w-4 h-4" />
+                            </button>
                         </div>
                     </div>
 
@@ -476,6 +515,26 @@ export default function OutwardForm() {
                     Add item row
                 </button>
 
+                {/* E-Way Bill notice — activates once dispatch value exceeds ₹50,000 */}
+                {totalAmount > 50000 && (
+                    <div className="flex flex-wrap items-center gap-3 p-4 bg-red-500/10 border border-red-500/25 rounded-xl">
+                        <FiAlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                        <p className="text-xs text-red-200/90 flex-1">
+                            This dispatch is valued at ₹{totalAmount.toLocaleString()} — above the ₹50,000 threshold for a mandatory E-Way Bill (interstate transport, Sec. 68 CGST Act).
+                        </p>
+                        <button
+                            onClick={() => {
+                                if (!savedDispatch) { toast.error('Please save the dispatch first, then fill in the E-Way Bill details.'); return; }
+                                setShowEwayModal(true);
+                            }}
+                            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-all cursor-pointer whitespace-nowrap"
+                        >
+                            <FiTruck className="w-3.5 h-3.5" />
+                            Fill E-Way Bill Details
+                        </button>
+                    </div>
+                )}
+
                 {/* Remarks */}
                 <div>
                     <label className="block text-xs font-medium text-surface-400 mb-1.5">Remarks (optional)</label>
@@ -563,5 +622,6 @@ export default function OutwardForm() {
                 )}
             </div>
         </div>
+        </>
     );
 }

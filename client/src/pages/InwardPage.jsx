@@ -1,5 +1,9 @@
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import api from '../utils/api';
 import ChallanVerification from '../components/ChallanVerification';
+import TransactionTable from '../components/TransactionTable';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -19,6 +23,26 @@ const itemVariants = {
 };
 
 export default function InwardPage({ user }) {
+  const [transactions, setTransactions] = useState([]);
+  const [filters, setFilters] = useState({ brand: '' });
+
+  const fetchTransactions = useCallback(async () => {
+    try {
+      const params = { type: 'in_ward' };
+      if (filters.brand) params.brand = filters.brand;
+      const { data } = await api.get('/transactions', { params });
+      setTransactions(data.data);
+    } catch {
+      toast.error('Failed to load inward transactions.');
+    }
+  }, [filters]);
+
+  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
+
+  const handleDelete = (deletedId) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== deletedId));
+  };
+
   return (
     <motion.div
       variants={containerVariants}
@@ -43,6 +67,18 @@ export default function InwardPage({ user }) {
 
       <motion.div variants={itemVariants}>
         <ChallanVerification />
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="bg-surface-900/40 backdrop-blur-xl border border-surface-700/50 rounded-3xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <TransactionTable
+          transactions={transactions}
+          filters={filters}
+          onFilterChange={setFilters}
+          onDelete={handleDelete}
+          canDelete={user?.role === 'admin'}
+          title="Inward Transactions"
+          showTypeFilter={false}
+        />
       </motion.div>
     </motion.div>
   );

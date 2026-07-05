@@ -11,6 +11,11 @@ export async function getCustomers() {
     return data.data;
 }
 
+export async function createCustomer(payload) {
+    const { data } = await api.post('/outward/customers', payload);
+    return data.data;
+}
+
 export async function getProducts(company) {
     const { data } = await api.get('/outward/products', { params: { company } });
     return data.data;

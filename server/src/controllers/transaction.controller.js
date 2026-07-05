@@ -81,8 +81,8 @@ exports.create = async (req, res) => {
 
     // Validation
     const errors = [];
-    if (!brand_name || !['Atomberg', 'Bajaj'].includes(brand_name)) {
-      errors.push('brand_name must be "Atomberg" or "Bajaj".');
+    if (!brand_name || !brand_name.trim()) {
+      errors.push('brand_name is required.');
     }
     if (!transaction_type || !['in_ward', 'out_ward'].includes(transaction_type)) {
       errors.push('transaction_type must be "in_ward" or "out_ward".');

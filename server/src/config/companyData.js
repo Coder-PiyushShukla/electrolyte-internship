@@ -1,6 +1,9 @@
 // ─── Company & Customer Master Data ───
-// Hardcoded config (per request) — edit these values directly as needed.
-// Values below were extracted from real past delivery challans on file.
+// Own company info stays hardcoded (per original request).
+// Customer companies ("brands") now live in the `brands` DB table so new
+// companies can be added from the UI instead of editing this file.
+
+const db = require('../config/db');
 
 // ── Electrolyte Solutions (your own company) — Section 1 of the PDF ──
 const COMPANY = {
@@ -20,38 +23,75 @@ const COMPANY = {
   ],
 };
 
-// ── Customers (companies you dispatch repaired PCBs back to) ──
-const CUSTOMERS = {
-  Atomberg: {
-    companyName: 'Atomberg Technologies Pvt. Ltd.',
-    address: 'Mind Space Shelters LLP/Vithai Developers LLP, Gate No 51-59, Opp-Dana india, Bhamboli, Chakan, Pune - 410507',
-    phone: '+91 7738590086',
-    gstin: '27AAKCA4836H1ZI',
-    email: '', // placeholder — fill in if available
-    hsnCode: '85340000', // HSN used consistently for Atomberg PCBs on past challans
-    defaultRate: 70, // ₹ per unit, as seen on past Atomberg challans
-  },
-  Bajaj: {
-    companyName: 'Bajaj Electricals Limited',
-    address: 'Shed B7, Galal No.1,2,3,4,5,6,7A,7B & 8A, Antariksh Logidrome, Mumbai-Nasik Highway, Amane Village, Bhiwandi, Maharashtra - 421302',
-    phone: '+91 9833999575',
-    gstin: '27AAACB2484Q1Z8',
-    email: '', // placeholder — fill in if available
-    hsnCode: '85166000', // HSN used consistently for Bajaj PCBs on past challans
-    defaultRate: 80, // ₹ per unit, as seen on past Bajaj challans
-  },
-};
+// Ensure the brands table exists (safety net if migration wasn't run manually).
+async function ensureTable() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS brands (
+      brand_key      VARCHAR(50)  PRIMARY KEY,
+      company_name   VARCHAR(255) NOT NULL,
+      address        TEXT,
+      phone          VARCHAR(50),
+      gstin          VARCHAR(50),
+      email          VARCHAR(255),
+      hsn_code       VARCHAR(20),
+      default_rate   NUMERIC(10, 2) DEFAULT 0,
+      created_at     TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+}
+
+function rowToCustomer(row) {
+  return {
+    brand: row.brand_key,
+    companyName: row.company_name,
+    address: row.address || '',
+    phone: row.phone || '',
+    gstin: row.gstin || '',
+    email: row.email || '',
+    hsnCode: row.hsn_code || '',
+    defaultRate: Number(row.default_rate || 0),
+  };
+}
 
 function getCompany() {
   return COMPANY;
 }
 
-function getCustomer(brand) {
-  return CUSTOMERS[brand] || null;
+// Returns a single customer/brand's details, or null if not found.
+async function getCustomer(brand) {
+  if (!brand) return null;
+  await ensureTable();
+  const result = await db.query('SELECT * FROM brands WHERE brand_key = $1', [brand]);
+  if (result.rows.length === 0) return null;
+  return rowToCustomer(result.rows[0]);
 }
 
-function getAllCustomers() {
-  return Object.keys(CUSTOMERS).map((brand) => ({ brand, ...CUSTOMERS[brand] }));
+// Returns all customers/brands, for populating dropdowns.
+async function getAllCustomers() {
+  await ensureTable();
+  const result = await db.query('SELECT * FROM brands ORDER BY brand_key ASC');
+  return result.rows.map(rowToCustomer);
 }
 
-module.exports = { COMPANY, CUSTOMERS, getCompany, getCustomer, getAllCustomers };
+// Adds a brand-new customer/company. Throws if the brand key already exists.
+async function addCustomer({ brand, companyName, address, phone, gstin, email, hsnCode, defaultRate }) {
+  await ensureTable();
+  const result = await db.query(
+    `INSERT INTO brands (brand_key, company_name, address, phone, gstin, email, hsn_code, default_rate)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [
+      brand.trim(),
+      companyName.trim(),
+      address || '',
+      phone || '',
+      gstin || '',
+      email || '',
+      hsnCode || '',
+      defaultRate || 0,
+    ]
+  );
+  return rowToCustomer(result.rows[0]);
+}
+
+module.exports = { COMPANY, getCompany, getCustomer, getAllCustomers, addCustomer };

@@ -1,7 +1,7 @@
 // ─── Outward Controller ───
 const db = require('../config/db');
 const { getFinancialYear } = require('../utils/financialYear');
-const { getCompany, getCustomer, getAllCustomers } = require('../config/companyData');
+const { getCompany, getCustomer, getAllCustomers, addCustomer } = require('../config/companyData');
 const { getItemsForBrand, lookupDescription } = require('../config/productData');
 const { createNotification, TYPES } = require('../services/notificationService');
 
@@ -70,7 +70,32 @@ exports.getCompanyInfo = async (req, res) => {
 
 // GET /api/customers
 exports.getCustomers = async (req, res) => {
-  res.json({ data: getAllCustomers() });
+  try {
+    const data = await getAllCustomers();
+    res.json({ data });
+  } catch (err) {
+    console.error('Get customers error:', err);
+    res.status(500).json({ error: 'Failed to load customer list.' });
+  }
+};
+
+// POST /api/customers — add a brand-new company/customer
+exports.createCustomer = async (req, res) => {
+  try {
+    const { brand, companyName, address, phone, gstin, email, hsnCode, defaultRate } = req.body;
+
+    if (!brand || !brand.trim()) return res.status(400).json({ error: 'Company short name (brand) is required.' });
+    if (!companyName || !companyName.trim()) return res.status(400).json({ error: 'Full company name is required.' });
+
+    const existing = await getCustomer(brand.trim());
+    if (existing) return res.status(409).json({ error: `A company named "${brand.trim()}" already exists.` });
+
+    const created = await addCustomer({ brand, companyName, address, phone, gstin, email, hsnCode, defaultRate });
+    res.status(201).json({ data: created });
+  } catch (err) {
+    console.error('Create customer error:', err);
+    res.status(500).json({ error: 'Failed to add new company.' });
+  }
 };
 
 // GET /api/products?company=Bajaj
@@ -78,16 +103,21 @@ exports.getProducts = async (req, res) => {
   const { company } = req.query;
   if (!company) return res.status(400).json({ error: 'company query param is required.' });
 
-  const items = getItemsForBrand(company);
-  const customer = getCustomer(company);
-  const data = Object.entries(items).map(([itemCode, description]) => ({
-    itemCode,
-    description,
-    hsnCode: customer?.hsnCode || '',
-    unit: 'Nos',
-    rate: customer?.defaultRate || 0,
-  }));
-  res.json({ data });
+  try {
+    const items = getItemsForBrand(company);
+    const customer = await getCustomer(company);
+    const data = Object.entries(items).map(([itemCode, description]) => ({
+      itemCode,
+      description,
+      hsnCode: customer?.hsnCode || '',
+      unit: 'Nos',
+      rate: customer?.defaultRate || 0,
+    }));
+    res.json({ data });
+  } catch (err) {
+    console.error('Get products error:', err);
+    res.status(500).json({ error: 'Failed to load products.' });
+  }
 };
 
 // ════════════════════════════════════════════════════════════

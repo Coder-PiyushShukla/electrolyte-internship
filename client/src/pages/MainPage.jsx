@@ -9,7 +9,6 @@ import {
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import SummaryCards from '../components/SummaryCards';
-import TransactionTable from '../components/TransactionTable';
 import UploadModal from '../components/UploadModal';
 
 const containerVariants = {
@@ -134,26 +133,11 @@ function SegToggle({ options, value, onChange }) {
 }
 
 export default function MainPage({ user }) {
-  const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState([]);
   const [monthly, setMonthly] = useState([]);
-  const [filters, setFilters] = useState({ brand: '', type: '' });
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [monthlyMode, setMonthlyMode] = useState('volume'); // 'volume' | 'share'
-
-  // Transaction table respects filters; analytics (summary/monthly) are always global.
-  const fetchTransactions = useCallback(async () => {
-    try {
-      const params = {};
-      if (filters.brand) params.brand = filters.brand;
-      if (filters.type) params.type = filters.type;
-      const { data } = await api.get('/transactions', { params });
-      setTransactions(data.data);
-    } catch {
-      toast.error('Failed to load transactions.');
-    }
-  }, [filters]);
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
@@ -171,15 +155,9 @@ export default function MainPage({ user }) {
     }
   }, []);
 
-  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 
-  const refreshAll = () => { fetchTransactions(); fetchAnalytics(); };
-
-  const handleDelete = (deletedId) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== deletedId));
-    fetchAnalytics();
-  };
+  const refreshAll = () => { fetchAnalytics(); };
 
   const handleUploadComplete = () => { refreshAll(); };
 
@@ -464,18 +442,7 @@ export default function MainPage({ user }) {
         </>
       )}
 
-      {/* Transaction log (filterable) */}
-      <motion.div variants={itemVariants} className="bg-surface-900/40 backdrop-blur-xl border border-surface-700/50 rounded-3xl p-2 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-        <TransactionTable
-          transactions={transactions}
-          filters={filters}
-          onFilterChange={setFilters}
-          onDelete={handleDelete}
-          canDelete={user?.role === 'admin'}
-        />
-      </motion.div>
-
-      {loading && transactions.length === 0 && (
+      {loading && !hasData && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />

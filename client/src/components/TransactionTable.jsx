@@ -2,12 +2,22 @@ import { useState, useEffect } from 'react';
 import { FiTrash2, FiArrowDown, FiArrowUp, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
+import { getCustomers } from '../utils/outwardApi';
 
 const INITIAL_VISIBLE = 8;
 const STEP = 10;
 
-export default function TransactionTable({ transactions, filters, onFilterChange, onDelete, canDelete = false }) {
+export default function TransactionTable({ transactions, filters, onFilterChange, onDelete, canDelete = false, title = 'Transactions', showTypeFilter = true }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const [brands, setBrands] = useState([]);
+
+  // Load the current company/brand list so the filter reflects whatever
+  // companies exist, including any newly-added ones.
+  useEffect(() => {
+    getCustomers()
+      .then((list) => setBrands(list.map((c) => c.brand)))
+      .catch(() => { });
+  }, []);
 
   // Collapse back to the initial page whenever the list changes (e.g. a filter).
   useEffect(() => {
@@ -39,7 +49,7 @@ export default function TransactionTable({ transactions, filters, onFilterChange
     <div className="animate-fade-in bg-surface-900/80 backdrop-blur-sm border border-surface-800 rounded-xl overflow-hidden">
       {/* Filters Bar */}
       <div id="transaction-filters" className="p-4 border-b border-surface-800 flex flex-wrap gap-3 items-center">
-        <h3 className="text-white font-semibold mr-auto">Transactions</h3>
+        <h3 className="text-white font-semibold mr-auto">{title}</h3>
 
         {/* Brand Filter */}
         <div className="relative">
@@ -50,26 +60,29 @@ export default function TransactionTable({ transactions, filters, onFilterChange
             className="appearance-none bg-surface-800/60 border border-surface-700 text-surface-200 text-sm rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
           >
             <option value="">All Brands</option>
-            <option value="Atomberg">Atomberg</option>
-            <option value="Bajaj">Bajaj</option>
+            {brands.map((b) => (
+              <option key={b} value={b}>{b}</option>
+            ))}
           </select>
           <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
         </div>
 
         {/* Type Filter */}
-        <div className="relative">
-          <select
-            id="filter-type"
-            value={filters.type}
-            onChange={(e) => onFilterChange({ ...filters, type: e.target.value })}
-            className="appearance-none bg-surface-800/60 border border-surface-700 text-surface-200 text-sm rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
-          >
-            <option value="">All Types</option>
-            <option value="in_ward">In-Ward</option>
-            <option value="out_ward">Out-Ward</option>
-          </select>
-          <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
-        </div>
+        {showTypeFilter && (
+          <div className="relative">
+            <select
+              id="filter-type"
+              value={filters.type}
+              onChange={(e) => onFilterChange({ ...filters, type: e.target.value })}
+              className="appearance-none bg-surface-800/60 border border-surface-700 text-surface-200 text-sm rounded-lg px-3 py-2 pr-8 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+            >
+              <option value="">All Types</option>
+              <option value="in_ward">In-Ward</option>
+              <option value="out_ward">Out-Ward</option>
+            </select>
+            <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
+          </div>
+        )}
       </div>
 
       {/* Table */}
