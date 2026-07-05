@@ -9,6 +9,7 @@ import { lookupDescription, getItemCodes } from '../data/masterData';
 import { peekNextLotNo, incrementLotNo, sendChallanReportEmail, recordInwardInventory } from '../utils/lotAndEmail';
 import { getCustomers } from '../utils/outwardApi';
 import AddCompanyModal from './AddCompanyModal';
+import ItemCodeCombobox from './ItemCodeCombobox';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -558,21 +559,11 @@ export default function ChallanVerification() {
                                         <tr key={row.id} className={`transition-colors duration-150 ${rowBg(remark)}`}>
                                             {/* Item Code */}
                                             <td className="px-3 py-2">
-                                                <div className="relative min-w-[120px]">
-                                                    <input
-                                                        list={`codes-${row.id}`}
-                                                        value={row.itemCode}
-                                                        onChange={(e) => updateRow(row.id, 'itemCode', e.target.value)}
-                                                        placeholder="Search code..."
-                                                        autoComplete="off"
-                                                        className="w-full bg-surface-800/50 border border-surface-700 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/60 placeholder:text-surface-600 transition-all"
-                                                    />
-                                                    <datalist id={`codes-${row.id}`}>
-                                                        {itemCodes.map((code) => (
-                                                            <option key={code} value={code} />
-                                                        ))}
-                                                    </datalist>
-                                                </div>
+                                                <ItemCodeCombobox
+                                                    value={row.itemCode}
+                                                    onChange={(val) => updateRow(row.id, 'itemCode', val)}
+                                                    options={itemCodes}
+                                                />
                                             </td>
                                             {/* Description */}
                                             <td className="px-3 py-2 min-w-[200px]">

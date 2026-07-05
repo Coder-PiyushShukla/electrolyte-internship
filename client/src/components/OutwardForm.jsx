@@ -10,6 +10,7 @@ import {
 } from '../utils/outwardApi';
 import AddCompanyModal from './AddCompanyModal';
 import EwayBillModal from './EwayBillModal';
+import ItemCodeCombobox from './ItemCodeCombobox';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -387,21 +388,11 @@ export default function OutwardForm({ user }) {
                                     <tr key={row.id} className={`transition-colors duration-150 ${overLimit ? 'bg-red-500/10' : 'hover:bg-surface-800/30'}`}>
                                         {/* Item Code */}
                                         <td className="px-3 py-2">
-                                            <div className="relative min-w-[120px]">
-                                                <input
-                                                    list={`outward-codes-${row.id}`}
-                                                    value={row.itemCode}
-                                                    onChange={(e) => updateRow(row.id, 'itemCode', e.target.value)}
-                                                    placeholder="Search code..."
-                                                    autoComplete="off"
-                                                    className="w-full bg-surface-800/50 border border-surface-700 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/60 placeholder:text-surface-600 transition-all"
-                                                />
-                                                <datalist id={`outward-codes-${row.id}`}>
-                                                    {products.map((p) => (
-                                                        <option key={p.itemCode} value={p.itemCode} />
-                                                    ))}
-                                                </datalist>
-                                            </div>
+                                            <ItemCodeCombobox
+                                                value={row.itemCode}
+                                                onChange={(val) => updateRow(row.id, 'itemCode', val)}
+                                                options={products.map((p) => p.itemCode)}
+                                            />
                                             {row.remaining !== null && (
                                                 <p className={`text-[11px] mt-1 ${overLimit ? 'text-red-400 font-semibold' : 'text-surface-500'}`}>
                                                     {row.remaining} remaining in stock
