@@ -28,8 +28,8 @@ A full-stack web application for tracking printed circuit board (PCB) inventory 
 
 The application is organized as a monorepo with two independent packages:
 
-- **`client/`** — a React single-page application (Vite) that serves the dashboard, inward/outward workflows, admin panel, and notification centre.
-- **`server/`** — a Node.js/Express REST API backed by PostgreSQL that handles authentication, inventory transactions, dispatch documents, email, and analytics.
+- **`client/`** - a React single-page application (Vite) that serves the dashboard, inward/outward workflows, admin panel, and notification centre.
+- **`server/`** - a Node.js/Express REST API backed by PostgreSQL that handles authentication, inventory transactions, dispatch documents, email, and analytics.
 
 Two brands are supported throughout the domain model: **Atomberg** and **Bajaj**. Inventory movement is recorded as `in_ward` (received) and `out_ward` (dispatched) transactions, and outward items carry an `ok` or `scrap` status.
 
@@ -37,14 +37,14 @@ Two brands are supported throughout the domain model: **Atomberg** and **Bajaj**
 
 ## Features
 
-- **Authentication and access control** — JWT-based login, bcrypt password hashing, an admin approval workflow for new registrations, and `admin` / `user` roles.
-- **Inward** — challan verification and bulk recording of received quantities into the inventory ledger.
-- **Outward** — dispatch creation with automatic DC-number and lot-number generation, live inventory validation, and delivery-challan PDF generation.
-- **Analytics dashboard** — live metrics computed from the database: inward vs outward by brand, pending PCBs by part code, monthly OK vs Scrap (with volume/share views), and a part-code inventory table.
-- **Excel import** — bulk-load inventory data from spreadsheets.
-- **Email** — verification reports and outward challans sent through a three-provider fallback chain (Gmail API, Resend, SMTP).
-- **Notifications** — an in-app activity log with per-user read state and admin/all audiences, covering email sends, dispatches, inward records, and user-management events.
-- **Audit protection** — transaction history is immutable to standard users; deletion is restricted to admins.
+- **Authentication and access control** - JWT-based login, bcrypt password hashing, an admin approval workflow for new registrations, and `admin` / `user` roles.
+- **Inward** - challan verification and bulk recording of received quantities into the inventory ledger.
+- **Outward** - dispatch creation with automatic DC-number and lot-number generation, live inventory validation, and delivery-challan PDF generation.
+- **Analytics dashboard** - live metrics computed from the database: inward vs outward by brand, pending PCBs by part code, monthly OK vs Scrap (with volume/share views), and a part-code inventory table.
+- **Excel import** - bulk-load inventory data from spreadsheets.
+- **Email** - verification reports and outward challans sent through a three-provider fallback chain (Gmail API, Resend, SMTP).
+- **Notifications** - an in-app activity log with per-user read state and admin/all audiences, covering email sends, dispatches, inward records, and user-management events.
+- **Audit protection** - transaction history is immutable to standard users; deletion is restricted to admins.
 
 ---
 
@@ -149,8 +149,8 @@ Backend configuration is read from `server/.env`.
 | `JWT_SECRET` | Secret used to sign JSON Web Tokens | required |
 | `JWT_EXPIRES_IN` | Token lifetime | `24h` |
 | `CORS_ORIGIN` | Comma-separated list of allowed origins | `http://localhost:5173`, `http://localhost:3000` |
-| `NODE_ENV` | Environment name | — |
-| `ADMIN_EMAIL` | Address notified when a new user registers | — |
+| `NODE_ENV` | Environment name | - |
+| `ADMIN_EMAIL` | Address notified when a new user registers | - |
 
 ### Email providers (configure at least one)
 
@@ -184,10 +184,10 @@ PostgreSQL schema, defined under `server/db/`:
 
 Schema scripts:
 
-- `db/init.sql` — base tables and default admin placeholder
-- `db/add_outward_tables.sql` — outward dispatch tables and counters
-- `db/add_notifications_tables.sql` — notification tables
-- `db/add_entries_table.sql` — supplementary entries table
+- `db/init.sql` - base tables and default admin placeholder
+- `db/add_outward_tables.sql` - outward dispatch tables and counters
+- `db/add_notifications_tables.sql` - notification tables
+- `db/add_entries_table.sql` - supplementary entries table
 
 Outward and notification tables are also created on demand at runtime, so a fresh deployment functions without running every migration manually.
 
@@ -218,7 +218,7 @@ Outward and notification tables are also created on demand at runtime, so a fres
 
 All endpoints are prefixed with `/api`. Except for the public authentication routes, every request requires an `Authorization: Bearer <token>` header.
 
-### Authentication — `/api/auth`
+### Authentication - `/api/auth`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
@@ -229,7 +229,7 @@ All endpoints are prefixed with `/api`. Except for the public authentication rou
 | `PATCH` | `/approve/:id` | Admin | Approve a pending user |
 | `DELETE` | `/users/:id` | Admin | Reject or remove a user |
 
-### Transactions — `/api/transactions`
+### Transactions - `/api/transactions`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
@@ -239,13 +239,13 @@ All endpoints are prefixed with `/api`. Except for the public authentication rou
 | `POST` | `/` | Auth | Create a single transaction |
 | `DELETE` | `/:id` | Admin | Delete a transaction |
 
-### Inward — `/api/inward`
+### Inward - `/api/inward`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
 | `POST` | `/record` | Auth | Bulk-record received quantities |
 
-### Outward — `/api/outward`
+### Outward - `/api/outward`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
@@ -258,13 +258,13 @@ All endpoints are prefixed with `/api`. Except for the public authentication rou
 | `POST` | `/generate-document` | Auth | Generate the challan PDF |
 | `POST` | `/send-email` | Auth | Email the challan with PDF attachment |
 
-### Email — `/api/email`
+### Email - `/api/email`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
 | `POST` | `/send-report` | Auth | Email a verification report |
 
-### Notifications — `/api/notifications`
+### Notifications - `/api/notifications`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
@@ -274,7 +274,7 @@ All endpoints are prefixed with `/api`. Except for the public authentication rou
 | `POST` | `/mark-all-read` | Auth | Mark all visible notifications as read |
 | `DELETE` | `/:id` | Admin | Delete a notification record |
 
-### Entries — `/api/entries`
+### Entries - `/api/entries`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
@@ -282,14 +282,14 @@ All endpoints are prefixed with `/api`. Except for the public authentication rou
 | `POST` | `/` | Auth | Create an entry |
 | `DELETE` | `/:id` | Auth | Delete an entry |
 
-### Lot Counter — `/api/lot-counter`
+### Lot Counter - `/api/lot-counter`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
 | `GET` | `/:brand/peek` | Auth | Peek the next lot number for a brand |
 | `POST` | `/:brand/increment` | Auth | Increment the lot counter |
 
-### Upload — `/api/upload`
+### Upload - `/api/upload`
 
 | Method | Path | Access | Description |
 |--------|------|--------|-------------|
@@ -317,9 +317,9 @@ All endpoints are prefixed with `/api`. Except for the public authentication rou
 
 Outbound email uses a three-provider fallback chain, tried in order until one is configured and succeeds:
 
-1. **Gmail REST API** — HTTPS-based, works on restricted hosts, can send to any recipient.
-2. **Resend HTTP API** — suitable for platforms that block outbound SMTP.
-3. **Nodemailer SMTP** — standard SMTP transport.
+1. **Gmail REST API** - HTTPS-based, works on restricted hosts, can send to any recipient.
+2. **Resend HTTP API** - suitable for platforms that block outbound SMTP.
+3. **Nodemailer SMTP** - standard SMTP transport.
 
 The `GET /api/health/email-config` endpoint reports which providers are configured (with masked secrets) and performs a Gmail token check when Gmail credentials are present.
 
