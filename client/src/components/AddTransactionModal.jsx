@@ -133,7 +133,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdded }) {
               <label htmlFor="txn-status" className={labelClasses}>Status</label>
               <div className="relative">
                 <select id="txn-status" name="status" value={form.status} onChange={handleChange} className={selectClasses}>
-                  <option value="">— Select —</option>
+                  <option value="">Select...</option>
                   <option value="ok">OK</option>
                   <option value="scrap">Scrap</option>
                 </select>

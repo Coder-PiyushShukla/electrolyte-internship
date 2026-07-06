@@ -101,7 +101,7 @@ exports.markAllRead = async (req, res) => {
   }
 };
 
-// DELETE /api/notifications/:id  (admin only — removes the record for everyone)
+// DELETE /api/notifications/:id  (admin only - removes the record for everyone)
 exports.remove = async (req, res) => {
   try {
     if (req.user.role !== 'admin') {

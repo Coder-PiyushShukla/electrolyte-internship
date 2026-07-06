@@ -21,7 +21,7 @@ export default function EntryFormCard({ user, onEntryAdded }) {
         const { data } = await api.get('/entries/part-codes');
         setPartCodes(data.data || []);
       } catch {
-        // Silently fail — user can still type a part code
+        // Silently fail - user can still type a part code
       }
     };
     fetchPartCodes();
@@ -77,7 +77,7 @@ export default function EntryFormCard({ user, onEntryAdded }) {
           </div>
           <h3 className="text-lg font-semibold text-white tracking-tight">New Entry</h3>
         </div>
-        {/* User badge — top right as shown in photo */}
+        {/* User badge - top right as shown in photo */}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-800/60 rounded-lg border border-surface-700/50">
           <FiUser className="w-3.5 h-3.5 text-brand-400" />
           <span className="text-sm text-surface-300 font-medium">{user?.username || 'User'}</span>
@@ -143,7 +143,7 @@ export default function EntryFormCard({ user, onEntryAdded }) {
           />
         </div>
 
-        {/* Part Code — Dropdown + freeform combo */}
+        {/* Part Code - Dropdown + freeform combo */}
         <div className="group">
           <label htmlFor="entry-part-code" className="flex items-center gap-2 text-sm font-medium text-surface-400 mb-2 group-focus-within:text-brand-400 transition-colors">
             <FiCpu className="w-3.5 h-3.5" />
@@ -170,7 +170,7 @@ export default function EntryFormCard({ user, onEntryAdded }) {
           </div>
         </div>
 
-        {/* Submit button — "+" style as shown in photo */}
+        {/* Submit button - "+" style as shown in photo */}
         <div className="flex justify-end pt-1">
           <button
             id="entry-submit"

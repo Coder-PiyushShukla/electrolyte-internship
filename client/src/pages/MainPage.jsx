@@ -33,7 +33,7 @@ const C = {
   neg: '#d03b3b',
   grid: '#26303f',      // recessive hairline grid
   axis: '#8a94a6',      // muted axis ink
-  surface: '#0f172a',   // chart surface — used as the 2px gap between stacked fills
+  surface: '#0f172a',   // chart surface - used as the 2px gap between stacked fills
 };
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -57,7 +57,7 @@ router.post('/record', async (req, res) => {
             challanDate,
             row.itemCode.trim(),
             qty,
-            null,   // status — not applicable for in_ward
+            null,   // status - not applicable for in_ward
             lotRemarks,
           ]
         );
@@ -69,7 +69,7 @@ router.post('/record', async (req, res) => {
       await createNotification({
         type: TYPES.INWARD_RECORDED,
         title: 'Inward challan recorded',
-        message: `${req.user?.username || 'A user'} recorded inward challan ${challanNo.trim()} for ${brand} — ${inserted.length} item(s).`,
+        message: `${req.user?.username || 'A user'} recorded inward challan ${challanNo.trim()} for ${brand} (${inserted.length} item(s)).`,
         actor: req.user?.username,
         audience: 'all',
         metadata: { challanNo: challanNo.trim(), brand, lotNo: lotNo || null, items: inserted.length },

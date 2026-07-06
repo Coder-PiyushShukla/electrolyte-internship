@@ -1,5 +1,5 @@
 // ─── Outward Document (PDF) Controller ───
-// Uses pdfmake (pure JS) instead of Puppeteer — no Chrome dependency required.
+// Uses pdfmake (pure JS) instead of Puppeteer - no Chrome dependency required.
 const path = require('path');
 const fs = require('fs');
 const PdfPrinter = require('pdfmake');
@@ -182,8 +182,8 @@ function buildDocDefinition(dispatch) {
               buildInfoRow('Challan No.', safe(dispatch.dc_no)),
               buildInfoRow('Challan Date', formatDate(dispatch.challan_date)),
               buildInfoRow('Lot No.', safe(dispatch.lot_no)),
-              buildInfoRow('Vehicle No.', safe(dispatch.vehicle_no || '—')),
-              buildInfoRow('Courier Partner', safe(dispatch.courier_partner || '—')),
+              buildInfoRow('Vehicle No.', safe(dispatch.vehicle_no || '-')),
+              buildInfoRow('Courier Partner', safe(dispatch.courier_partner || '-')),
             ],
           },
         ],
@@ -289,7 +289,7 @@ function buildDocDefinition(dispatch) {
             stack: [
               { text: '', margin: [0, 40, 0, 0] },
               { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 0.8, lineColor: '#1e293b' }] },
-              { text: `Authorized Signatory — ${safe(company.companyName)} (Company Stamp)`, fontSize: 9, bold: true, alignment: 'center', margin: [0, 6, 0, 0] },
+              { text: `Authorized Signatory - ${safe(company.companyName)} (Company Stamp)`, fontSize: 9, bold: true, alignment: 'center', margin: [0, 6, 0, 0] },
             ],
           },
         ],

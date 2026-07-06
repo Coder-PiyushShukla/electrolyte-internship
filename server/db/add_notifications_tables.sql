@@ -1,5 +1,5 @@
 -- ============================================================
--- Notifications feature — Migration Script
+-- Notifications feature - Migration Script
 -- Run: psql -U postgres -d pcb_tracker -f add_notifications_tables.sql
 -- (Also auto-created at runtime by notificationService.ensureNotificationTables.)
 -- ============================================================

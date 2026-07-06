@@ -3,7 +3,7 @@
 // generating a printable/downloadable PDF copy of those details.
 //
 // Note: this does NOT file anything with the government E-Way Bill portal.
-// The actual E-Way Bill number must still be generated on ewaybillgst.gov.in —
+// The actual E-Way Bill number must still be generated on ewaybillgst.gov.in -
 // this just lets you record those details against the dispatch and produce
 // a clean internal copy for your records / the driver to carry alongside
 // the delivery challan.
@@ -28,18 +28,18 @@ const fonts = {
 const printer = new PdfPrinter(fonts);
 
 function safe(val) {
-  return String(val ?? '—');
+  return String(val ?? '-');
 }
 
 function formatDateTime(d) {
-  if (!d) return '—';
+  if (!d) return '-';
   const date = new Date(d);
   if (isNaN(date.getTime())) return String(d);
   return date.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDate(d) {
-  if (!d) return '—';
+  if (!d) return '-';
   const date = new Date(d);
   if (isNaN(date.getTime())) return String(d);
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -82,7 +82,7 @@ async function ensureTable() {
   `);
 }
 
-// GET /api/outward/dispatches/:id/eway — fetch saved e-way bill details (or null)
+// GET /api/outward/dispatches/:id/eway - fetch saved e-way bill details (or null)
 exports.getEwayBill = async (req, res) => {
   try {
     await ensureTable();
@@ -95,7 +95,7 @@ exports.getEwayBill = async (req, res) => {
   }
 };
 
-// POST /api/outward/dispatches/:id/eway — create or update e-way bill details
+// POST /api/outward/dispatches/:id/eway - create or update e-way bill details
 exports.saveEwayBill = async (req, res) => {
   try {
     await ensureTable();
@@ -189,7 +189,7 @@ function buildDocDefinition(eway, dispatch) {
     },
     content: [
       { text: 'e-Way Bill', style: 'title', margin: [0, 0, 0, 4] },
-      { text: `Internal record — generated on ${formatDateTime(new Date())} by ${safe(eway.entered_by)}`, style: 'note', margin: [0, 0, 0, 14] },
+      { text: `Internal record: generated on ${formatDateTime(new Date())} by ${safe(eway.entered_by)}`, style: 'note', margin: [0, 0, 0, 14] },
 
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 535, y2: 0, lineWidth: 1, lineColor: '#cbd5e1' }], margin: [0, 0, 0, 12] },
 

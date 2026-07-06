@@ -49,7 +49,7 @@ async function ensureNotificationTables() {
   tablesReady = true;
 }
 
-// Record a notification. Deliberately never throws — a logging failure must not
+// Record a notification. Deliberately never throws - a logging failure must not
 // break the primary action (sending an email, creating a dispatch, ...).
 async function createNotification({
   type,

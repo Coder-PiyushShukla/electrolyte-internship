@@ -1,5 +1,5 @@
 -- ============================================================
--- PCB Entries Table — Migration Script
+-- PCB Entries Table - Migration Script
 -- Run: psql -U postgres -d pcb_tracker -f add_entries_table.sql
 -- ============================================================
 

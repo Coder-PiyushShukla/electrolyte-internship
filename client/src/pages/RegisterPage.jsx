@@ -118,7 +118,7 @@ export default function RegisterPage() {
         .pcb-scan { animation: scanMove 5s linear infinite; }
       `}</style>
 
-      {/* LEFT — storytelling / circuit board */}
+      {/* LEFT - storytelling / circuit board */}
       <div className="hidden lg:flex lg:w-[56%] relative items-center justify-center overflow-hidden bg-gradient-to-br from-[#060a08] via-[#0f0b06] to-[#2a1a0d] border-r border-[#3a2513]">
         <div
           className="absolute inset-0 opacity-[0.14] pointer-events-none"
@@ -162,7 +162,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* RIGHT — auth form */}
+      {/* RIGHT - auth form */}
       <div className="flex-1 flex items-center justify-center relative px-6 py-12">
         <motion.div
           animate={{ scale: [1, 1.1, 1], opacity: [0.25, 0.4, 0.25] }}

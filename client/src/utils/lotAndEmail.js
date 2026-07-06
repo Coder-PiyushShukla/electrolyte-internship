@@ -23,7 +23,7 @@ export async function sendChallanReportEmail({ to, brand, challanNo, challanDate
     return data;
 }
 
-// Record inward inventory — called when the user clicks "Save Challan".
+// Record inward inventory - called when the user clicks "Save Challan".
 // Writes one pcb_transactions row (transaction_type = 'in_ward') per item
 // line so the Outward page's inventory check sees the received stock.
 // Uses physicalQty (what was actually counted) as the quantity, not challanQty.
