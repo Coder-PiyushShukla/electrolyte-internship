@@ -1,5 +1,5 @@
 // ─── Master PCB Item Code Database (server-side copy) ───
-// Mirrors client/src/data/masterData.js — used by the Product API
+// Mirrors client/src/data/masterData.js - used by the Product API
 // (GET /api/products?company=Bajaj) so the Outward page item-code dropdown
 // and auto-filled description/HSN come from the server, consistent with
 // the Inward page's lookup table.

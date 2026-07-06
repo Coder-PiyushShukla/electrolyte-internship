@@ -1,7 +1,7 @@
 // ─── Vehicle Number → State Lookup ───
 // Implements the logic described in the E-Way Bill reference notes:
 // a vehicle plate's first two letters are an RTO state code (e.g. "DL", "MH",
-// "TN"), which maps to a state — and every state also has a two-digit GST
+// "TN"), which maps to a state - and every state also has a two-digit GST
 // state code (e.g. Delhi = 07, Maharashtra = 27) used on GSTINs and E-Way
 // Bills. This utility does both lookups from just the vehicle number.
 

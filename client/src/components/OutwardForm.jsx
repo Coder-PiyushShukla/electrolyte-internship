@@ -296,7 +296,7 @@ export default function OutwardForm({ user }) {
                         </div>
                     </div>
 
-                    {/* DC No — auto */}
+                    {/* DC No - auto */}
                     <div>
                         <label className="flex items-center gap-1.5 text-xs font-medium text-surface-400 mb-1.5">
                             <FiHash className="w-3 h-3" /> Challan No. / DC No. <span className="text-surface-600">(auto)</span>
@@ -306,7 +306,7 @@ export default function OutwardForm({ user }) {
                         </div>
                     </div>
 
-                    {/* Lot No — auto */}
+                    {/* Lot No - auto */}
                     <div>
                         <label className="flex items-center gap-1.5 text-xs font-medium text-surface-400 mb-1.5">
                             <FiHash className="w-3 h-3" /> Lot No. <span className="text-surface-600">(auto)</span>
@@ -339,7 +339,7 @@ export default function OutwardForm({ user }) {
                         <input value={courierPartner} onChange={(e) => setCourierPartner(e.target.value)} placeholder="e.g. Delhivery Ltd" className={inputCls} />
                     </div>
 
-                    {/* Company Address — auto, read-only */}
+                    {/* Company Address - auto, read-only */}
                     <div className="sm:col-span-3">
                         <label className="block text-xs font-medium text-surface-400 mb-1.5">Company Address <span className="text-surface-600">(auto)</span></label>
                         <div className={readonlyCls}>
@@ -347,17 +347,17 @@ export default function OutwardForm({ user }) {
                         </div>
                     </div>
 
-                    {/* Phone + GSTIN — auto, read-only */}
+                    {/* Phone + GSTIN - auto, read-only */}
                     <div>
                         <label className="block text-xs font-medium text-surface-400 mb-1.5">Phone No. <span className="text-surface-600">(auto)</span></label>
                         <div className={readonlyCls}>
-                            <span className="text-surface-300">{customerInfo?.phone || '—'}</span>
+                            <span className="text-surface-300">{customerInfo?.phone || '-'}</span>
                         </div>
                     </div>
                     <div className="sm:col-span-2">
                         <label className="block text-xs font-medium text-surface-400 mb-1.5">GSTIN <span className="text-surface-600">(auto)</span></label>
                         <div className={readonlyCls}>
-                            <span className="text-surface-300">{customerInfo?.gstin || '—'}</span>
+                            <span className="text-surface-300">{customerInfo?.gstin || '-'}</span>
                         </div>
                     </div>
                 </div>
@@ -506,12 +506,12 @@ export default function OutwardForm({ user }) {
                     Add item row
                 </button>
 
-                {/* E-Way Bill notice — activates once dispatch value exceeds ₹50,000 */}
+                {/* E-Way Bill notice - activates once dispatch value exceeds ₹50,000 */}
                 {totalAmount > 50000 && (
                     <div className="flex flex-wrap items-center gap-3 p-4 bg-red-500/10 border border-red-500/25 rounded-xl">
                         <FiAlertCircle className="w-4 h-4 text-red-400 shrink-0" />
                         <p className="text-xs text-red-200/90 flex-1">
-                            This dispatch is valued at ₹{totalAmount.toLocaleString()} — above the ₹50,000 threshold for a mandatory E-Way Bill (interstate transport, Sec. 68 CGST Act).
+                            This dispatch is valued at ₹{totalAmount.toLocaleString()}, above the ₹50,000 threshold for a mandatory E-Way Bill (interstate transport, Sec. 68 CGST Act).
                         </p>
                         <button
                             onClick={() => {

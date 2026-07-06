@@ -40,7 +40,7 @@ export default function TransactionTable({ transactions, filters, onFilterChange
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
+    if (!dateStr) return '-';
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
@@ -154,10 +154,10 @@ export default function TransactionTable({ transactions, filters, onFilterChange
                         {txn.status.toUpperCase()}
                       </span>
                     ) : (
-                      <span className="text-surface-600">—</span>
+                      <span className="text-surface-600">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-surface-400 text-xs max-w-[150px] truncate">{txn.remarks || '—'}</td>
+                  <td className="px-4 py-3 text-surface-400 text-xs max-w-[150px] truncate">{txn.remarks || '-'}</td>
                   {canDelete && (
                     <td className="px-4 py-3 text-center">
                       <button

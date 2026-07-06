@@ -1,5 +1,5 @@
 -- ============================================================
--- PCB Inventory Tracker — Database Initialization Script
+-- PCB Inventory Tracker - Database Initialization Script
 -- Run: psql -U postgres -d pcb_tracker -f init.sql
 -- ============================================================
 

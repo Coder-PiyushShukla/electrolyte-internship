@@ -14,7 +14,7 @@ async function ensureTable() {
   `);
 }
 
-// GET /api/lot-counter/:brand — peek at the next lot number WITHOUT incrementing.
+// GET /api/lot-counter/:brand - peek at the next lot number WITHOUT incrementing.
 // Used so the UI can display the upcoming lot no. before the user saves.
 exports.peek = async (req, res) => {
   try {
@@ -34,7 +34,7 @@ exports.peek = async (req, res) => {
   }
 };
 
-// POST /api/lot-counter/:brand/increment — atomically bump and return the new lot number.
+// POST /api/lot-counter/:brand/increment - atomically bump and return the new lot number.
 // Call this only when a challan is actually being saved/finalized.
 exports.increment = async (req, res) => {
   try {

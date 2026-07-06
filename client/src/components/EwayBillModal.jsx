@@ -86,7 +86,7 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
                 setValidUntilTouched(true); // don't overwrite a previously saved validUntil automatically
                 setSaved(true);
             })
-            .catch(() => { /* no existing record — that's fine, use defaults */ })
+            .catch(() => { /* no existing record - that's fine, use defaults */ })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,7 +192,7 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
                         </div>
                         <div>
                             <h3 className="text-lg font-semibold text-white tracking-tight">E-Way Bill Details</h3>
-                            <p className="text-xs text-surface-500">Dispatch value exceeds ₹50,000 — required for interstate transport (Sec. 68, CGST Act)</p>
+                            <p className="text-xs text-surface-500">Dispatch value exceeds ₹50,000, required for interstate transport (Sec. 68, CGST Act)</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-1.5 text-surface-500 hover:text-white hover:bg-surface-800 rounded-lg transition-all cursor-pointer">
@@ -210,7 +210,7 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
                             <FiInfo className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                             <p className="text-xs text-amber-200/90">
                                 Generate the actual E-Way Bill on the government portal (ewaybillgst.gov.in) first, then record its details here.
-                                This creates an internal copy for your records — it does not file anything with the government.
+                                This creates an internal copy for your records; it does not file anything with the government.
                             </p>
                         </div>
 
@@ -268,7 +268,7 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
                                 {supplyType && (
                                     <div className="flex items-center gap-2 px-3 py-2 bg-surface-800/40 border border-surface-700/50 rounded-xl text-xs text-surface-300">
                                         <FiMapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
-                                        {supplyType.supplierState} → {supplyType.recipientState} —{' '}
+                                        {supplyType.supplierState} → {supplyType.recipientState}:{' '}
                                         <span className={`font-semibold ${supplyType.isInterstate ? 'text-orange-400' : 'text-emerald-400'}`}>
                                             {supplyType.isInterstate ? 'Interstate' : 'Intrastate'}
                                         </span>{' '}

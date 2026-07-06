@@ -76,7 +76,7 @@ export default function NotificationsPage({ user }) {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">Notifications</h1>
-            <p className="text-sm text-surface-400">Activity log — emails, dispatches, and access changes</p>
+            <p className="text-sm text-surface-400">Activity log: emails, dispatches, and access changes</p>
           </div>
         </div>
         <button

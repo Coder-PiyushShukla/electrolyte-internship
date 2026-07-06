@@ -1,5 +1,5 @@
 -- ============================================================
--- E-Way Bill details — one row per outward dispatch that needs one
+-- E-Way Bill details - one row per outward dispatch that needs one
 -- (dispatch value > ₹50,000, per CGST Act Section 68 interstate rule).
 -- Run: psql -U postgres -d pcb_tracker -f add_eway_bill_table.sql
 -- ============================================================

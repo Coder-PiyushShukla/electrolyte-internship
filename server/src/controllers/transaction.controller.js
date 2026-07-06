@@ -116,7 +116,7 @@ exports.create = async (req, res) => {
   }
 };
 
-// DELETE /api/transactions/:id  (admin only — transaction history is otherwise immutable)
+// DELETE /api/transactions/:id  (admin only - transaction history is otherwise immutable)
 exports.remove = async (req, res) => {
   try {
     if (req.user?.role !== 'admin') {

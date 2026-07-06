@@ -92,7 +92,7 @@ export default function UploadModal({ isOpen, onClose, onUploaded }) {
             ) : (
               <>
                 <p className="text-surface-300 font-medium">Drag & drop your file here</p>
-                <p className="text-xs text-surface-500 mt-1">or click to browse — .xlsx or .csv (max 10MB)</p>
+                <p className="text-xs text-surface-500 mt-1">or click to browse (.xlsx or .csv, max 10MB)</p>
               </>
             )}
           </div>

@@ -1,7 +1,7 @@
 // ─── PCB Entry Controller ───
 const db = require('../config/db');
 
-// GET /api/entries — List all entries
+// GET /api/entries - List all entries
 exports.getAll = async (req, res) => {
   try {
     const result = await db.query(
@@ -14,7 +14,7 @@ exports.getAll = async (req, res) => {
   }
 };
 
-// POST /api/entries — Create a new entry
+// POST /api/entries - Create a new entry
 exports.create = async (req, res) => {
   try {
     const { doc_no, lot_no, dc_date, part_code } = req.body;
@@ -67,7 +67,7 @@ exports.remove = async (req, res) => {
   }
 };
 
-// GET /api/entries/part-codes — Get distinct part codes for dropdown
+// GET /api/entries/part-codes - Get distinct part codes for dropdown
 exports.getPartCodes = async (req, res) => {
   try {
     const result = await db.query(

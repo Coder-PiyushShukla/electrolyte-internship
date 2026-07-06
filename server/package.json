@@ -1,7 +1,7 @@
 {
   "name": "pcb-tracker-server",
   "version": "1.0.0",
-  "description": "PCB Inventory Tracker — Backend API",
+  "description": "PCB Inventory Tracker - Backend API",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",

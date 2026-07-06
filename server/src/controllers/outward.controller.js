@@ -79,7 +79,7 @@ exports.getCustomers = async (req, res) => {
   }
 };
 
-// POST /api/customers — add a brand-new company/customer
+// POST /api/customers - add a brand-new company/customer
 exports.createCustomer = async (req, res) => {
   try {
     const { brand, companyName, address, phone, gstin, email, hsnCode, defaultRate } = req.body;
@@ -124,7 +124,7 @@ exports.getProducts = async (req, res) => {
 // Auto-generation: DC No. and Lot No.
 // ════════════════════════════════════════════════════════════
 
-// GET /api/outward/next-dc — peek the next DC number (doesn't increment)
+// GET /api/outward/next-dc - peek the next DC number (doesn't increment)
 exports.peekNextDc = async (req, res) => {
   try {
     await ensureTables();
@@ -143,7 +143,7 @@ exports.peekNextDc = async (req, res) => {
   }
 };
 
-// GET /api/lot?company=Bajaj — peek the next lot number for outward (doesn't increment)
+// GET /api/lot?company=Bajaj - peek the next lot number for outward (doesn't increment)
 exports.peekNextLot = async (req, res) => {
   try {
     await ensureTables();
@@ -182,8 +182,8 @@ async function getInwardReceivedQty(partCode) {
 
 // Returns total already-dispatched quantity (OK + SCRAP, across all past
 // outward dispatches) for an item_code (part_code), so we can check remaining
-// inventory. Reads from pcb_transactions out_ward — the same table that
-// createDispatch writes to — so inward and outward are always consistent.
+// inventory. Reads from pcb_transactions out_ward - the same table that
+// createDispatch writes to - so inward and outward are always consistent.
 async function getOutwardDispatchedQty(itemCode) {
   const result = await db.query(
     `SELECT COALESCE(SUM(quantity), 0) AS total
@@ -213,7 +213,7 @@ exports.inventoryCheck = async (req, res) => {
 };
 
 // ════════════════════════════════════════════════════════════
-// Dispatch save — validates duplicates + inventory, then increments
+// Dispatch save - validates duplicates + inventory, then increments
 // DC No. and Lot No. counters atomically, and persists the dispatch.
 // ════════════════════════════════════════════════════════════
 
@@ -274,7 +274,7 @@ exports.createDispatch = async (req, res) => {
 
       const fy = getFinancialYear();
 
-      // DC No. — global counter per financial year
+      // DC No. - global counter per financial year
       const dcResult = await client.query(
         `INSERT INTO outward_dc_counter (financial_year, last_dc_no)
          VALUES ($1, 1)
@@ -286,7 +286,7 @@ exports.createDispatch = async (req, res) => {
       const dcNumber = dcResult.rows[0].last_dc_no;
       const dcNo = `ES/${fy}/DC${String(dcNumber).padStart(3, '0')}`;
 
-      // Lot No. — per brand, per financial year
+      // Lot No. - per brand, per financial year
       const lotResult = await client.query(
         `INSERT INTO outward_lot_counter (financial_year, brand_name, last_lot_no)
          VALUES ($1, $2, 1)
@@ -359,7 +359,7 @@ exports.createDispatch = async (req, res) => {
       await createNotification({
         type: TYPES.DISPATCH_CREATED,
         title: 'Outward dispatch created',
-        message: `${req.user?.username || 'A user'} created dispatch ${dcNo} for ${companyName} — ${totalQty} pcs, ₹${totalAmount}.`,
+        message: `${req.user?.username || 'A user'} created dispatch ${dcNo} for ${companyName} (${totalQty} pcs, ₹${totalAmount}).`,
         actor: req.user?.username,
         audience: 'all',
         metadata: { dispatchId: dispatch.id, dcNo, lotNo, brand, customer: companyName, totalQty, totalAmount },
@@ -378,7 +378,7 @@ exports.createDispatch = async (req, res) => {
   }
 };
 
-// GET /api/outward/dispatches — list all outward dispatches
+// GET /api/outward/dispatches - list all outward dispatches
 exports.getDispatches = async (req, res) => {
   try {
     await ensureTables();
@@ -392,7 +392,7 @@ exports.getDispatches = async (req, res) => {
   }
 };
 
-// GET /api/outward/dispatches/:id — full dispatch with items
+// GET /api/outward/dispatches/:id - full dispatch with items
 exports.getDispatchById = async (req, res) => {
   try {
     const { id } = req.params;

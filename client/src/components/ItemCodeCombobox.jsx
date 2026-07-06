@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 // A searchable item-code input with a custom, height-capped, scrollable
-// dropdown — replaces the native <input list> + <datalist> combo, which
+// dropdown - replaces the native <input list> + <datalist> combo, which
 // browsers render as an unstyled, unscrollable list that overflows the
 // page once there are more than a handful of options.
 //

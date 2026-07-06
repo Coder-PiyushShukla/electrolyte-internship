@@ -1,5 +1,5 @@
 -- ============================================================
--- Lot Counters + Challan History — Migration Script
+-- Lot Counters + Challan History - Migration Script
 -- Run: psql -U postgres -d pcb_tracker -f add_lot_and_challan_tables.sql
 -- ============================================================
 

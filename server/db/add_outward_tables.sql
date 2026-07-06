@@ -1,10 +1,10 @@
 -- ============================================================
--- Outward PCB System — Migration Script
+-- Outward PCB System - Migration Script
 -- Run: psql -U postgres -d pcb_tracker -f add_outward_tables.sql
 -- ============================================================
 
 -- ── DC No. counter, scoped to financial year (e.g. "26-27") ──
--- Format used: ES/26-27/DC001 — increments by 1 globally (not per-brand),
+-- Format used: ES/26-27/DC001 - increments by 1 globally (not per-brand),
 -- and resets whenever the financial year string changes.
 CREATE TABLE IF NOT EXISTS outward_dc_counter (
     financial_year   VARCHAR(10) PRIMARY KEY,

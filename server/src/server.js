@@ -1,4 +1,4 @@
-// ─── PCB Inventory Tracker — Server Entry Point ───
+// ─── PCB Inventory Tracker - Server Entry Point ───
 require('dotenv').config();
 
 const express = require('express');
@@ -26,7 +26,7 @@ if (!fs.existsSync(outwardPdfsDir)) {
 // ── Middleware ──
 app.use(helmet());
 
-// Dynamic CORS — reads allowed origins from env (comma-separated)
+// Dynamic CORS - reads allowed origins from env (comma-separated)
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(s => s.trim().replace(/\/+$/, ''))
   : ['http://localhost:5173', 'http://localhost:3000'];
@@ -119,7 +119,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`
   ╔════════════════════════════════════════════╗
-  ║   PCB Inventory Tracker — API Server       ║
+  ║   PCB Inventory Tracker - API Server       ║
   ║   Running on http://localhost:${PORT}          ║
   ╚════════════════════════════════════════════╝
   `);

@@ -15,7 +15,7 @@ export default function EntriesTable({ entries, onDelete }) {
   };
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
+    if (!dateStr) return '-';
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
@@ -74,7 +74,7 @@ export default function EntriesTable({ entries, onDelete }) {
                       {entry.part_code}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-surface-400 text-xs">{entry.created_by || '—'}</td>
+                  <td className="px-4 py-3 text-surface-400 text-xs">{entry.created_by || '-'}</td>
                   <td className="px-4 py-3 text-surface-400 text-xs whitespace-nowrap">{formatDate(entry.created_at)}</td>
                   <td className="px-4 py-3 text-center">
                     <button

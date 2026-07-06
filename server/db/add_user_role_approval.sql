@@ -1,6 +1,6 @@
 -- ============================================================
 -- Fix: users table is missing columns required by auth.controller.js
---      (is_approved, role) — causes "Internal server error" on
+--      (is_approved, role) - causes "Internal server error" on
 --      login/register because those queries fail against the
 --      original init.sql schema.
 -- Run: psql -U postgres -d pcb_tracker -f add_user_role_approval.sql

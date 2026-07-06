@@ -5,15 +5,15 @@
 
 const db = require('../config/db');
 
-// ── Electrolyte Solutions (your own company) — Section 1 of the PDF ──
+// ── Electrolyte Solutions (your own company) - Section 1 of the PDF ──
 const COMPANY = {
   companyName: 'Electrolyte Solutions',
   address: 'Unit No. 11, 3rd floor, B-Wing, Gami Industrial Park, Plot Number: C-39-A, TTC Industrial Area Pawane MIDC, Navi Mumbai - 400710',
   phone: '+91 9029352208',
-  email: 'info@electrolytesolutions.in', // placeholder — update with real email
+  email: 'info@electrolytesolutions.in', // placeholder - update with real email
   gstin: '27AJYPY7934L1ZS',
   website: '', // optional, leave blank if none
-  logo: '', // optional — path/URL to a logo image, leave blank if none
+  logo: '', // optional - path/URL to a logo image, leave blank if none
   terms: [
     'Subject to Navi Mumbai Jurisdiction.',
     'Our responsibility ceases as soon as the goods leave our premises.',

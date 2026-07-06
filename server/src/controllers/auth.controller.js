@@ -138,7 +138,7 @@ exports.approveUser = async (req, res) => {
   }
 };
 
-// GET /api/auth/users — list all users (admin only)
+// GET /api/auth/users - list all users (admin only)
 exports.listUsers = async (req, res) => {
   try {
     const result = await db.query(
@@ -150,7 +150,7 @@ exports.listUsers = async (req, res) => {
   }
 };
 
-// DELETE /api/auth/users/:id — reject/delete a user (admin only)
+// DELETE /api/auth/users/:id - reject/delete a user (admin only)
 exports.rejectUser = async (req, res) => {
   try {
     const { id } = req.params;

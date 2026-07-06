@@ -21,7 +21,7 @@ export default function NotificationBell() {
     try {
       setUnread(await getUnreadCount());
     } catch {
-      /* silent — badge just won't update this tick */
+      /* silent - badge just won't update this tick */
     }
   }, []);
 

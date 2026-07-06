@@ -1,5 +1,5 @@
 // ─── Gmail API Utility ───
-// Sends emails via Google's Gmail REST API (HTTPS — no SMTP ports needed).
+// Sends emails via Google's Gmail REST API (HTTPS - no SMTP ports needed).
 // Works on Render free tier, and can send to ANY recipient.
 //
 // Required env vars:
@@ -107,7 +107,7 @@ function buildRawEmail({ from, to, subject, html, text, attachments }) {
     return headers.join('\r\n') + '\r\n\r\n' + body;
   }
 
-  // ── No attachments — simple multipart/alternative ──
+  // ── No attachments - simple multipart/alternative ──
   headers.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
 
   let body = '';
