@@ -7,22 +7,22 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 export default function ForgotPasswordPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!username) {
-      toast.error('Please enter your username.');
+    if (!email) {
+      toast.error('Please enter your email.');
       return;
     }
 
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/forgot-password', { username });
-      toast.success(data.message || 'If an account exists, a recovery link has been sent.');
-      setUsername('');
+      const { data } = await api.post('/auth/forgot-password', { email });
+      toast.success(data.message || 'If an account exists, the security key has been forwarded.');
+      setEmail('');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to process request.');
     } finally {
@@ -91,15 +91,15 @@ export default function ForgotPasswordPage() {
 
             <div className="mb-8 relative group">
               <label className="block text-xs uppercase tracking-wider font-semibold text-surface-400 mb-2">
-                Username
+                Email
               </label>
               <div className="relative">
                 <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-500 group-focus-within:text-brand-400 transition-colors" />
                 <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter identifier"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter email address"
                   className="w-full pl-12 pr-4 py-3.5 bg-surface-950/50 border border-surface-700/50 rounded-xl text-white placeholder:text-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300"
                 />
               </div>

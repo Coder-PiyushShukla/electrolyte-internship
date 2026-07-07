@@ -6,27 +6,27 @@ const { createNotification, TYPES } = require('../services/notificationService')
 
 exports.register = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required.' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email and password are required.' });
     }
 
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     }
 
-    const existing = await db.query('SELECT id FROM users WHERE username = $1', [username]);
+    const existing = await db.query('SELECT id FROM users WHERE username = $1 OR email = $2', [username, email]);
     if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'Username already exists.' });
+      return res.status(409).json({ error: 'Username or email already exists.' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
     const result = await db.query(
-      'INSERT INTO users (username, password_hash, is_approved) VALUES ($1, $2, $3) RETURNING id, username',
-      [username, password_hash, false]
+      'INSERT INTO users (username, email, password_hash, is_approved) VALUES ($1, $2, $3, $4) RETURNING id, username, email',
+      [username, email, password_hash, false]
     );
 
     const adminEmail = process.env.ADMIN_EMAIL;
@@ -34,17 +34,17 @@ exports.register = async (req, res) => {
       await sendEmail({
         to: adminEmail,
         subject: 'New User Registration Pending Approval',
-        text: `User ${username} has registered and is waiting for approval.`
+        text: `User ${username} (${email}) has registered and is waiting for approval.`
       });
     }
 
     await createNotification({
       type: TYPES.USER_REGISTERED,
       title: 'New user registration',
-      message: `${username} registered and is awaiting admin approval.`,
+      message: `${username} (${email}) registered and is awaiting admin approval.`,
       actor: username,
       audience: 'admin',
-      metadata: { username, userId: result.rows[0].id },
+      metadata: { username, email, userId: result.rows[0].id },
     });
 
     res.status(201).json({
@@ -58,13 +58,13 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required.' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email and password are required.' });
     }
 
-    const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+    const result = await db.query('SELECT * FROM users WHERE username = $1 AND email = $2', [username, email]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
@@ -98,17 +98,43 @@ exports.login = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    const { username } = req.body;
-    if (!username) {
-      return res.status(400).json({ error: 'Username is required.' });
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
     }
 
-    const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
-      return res.status(200).json({ message: 'If an account exists, a recovery link has been sent.' });
+      return res.status(200).json({ message: 'If an account exists, the security key has been forwarded.' });
     }
 
-    res.status(200).json({ message: 'If an account exists, a recovery link has been sent.' });
+    const user = result.rows[0];
+    const newSecurityKey = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(newSecurityKey, salt);
+
+    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
+
+    try {
+      await sendEmail({
+        to: email.trim(),
+        subject: 'PCB Tracker - Security Key Reset',
+        text: `Hello ${user.username},\n\nYour security key has been reset as requested.\nYour new security key is: ${newSecurityKey}\n\nPlease use this key to login.`,
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; color: #1e293b;">
+          <h2>PCB Tracker Security Key Reset</h2>
+          <p>Hello <strong>${user.username}</strong>,</p>
+          <p>Your security key has been reset as requested.</p>
+          <p style="font-size: 16px;">Your new security key is: <strong style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-family: monospace; color: #0d2818;">${newSecurityKey}</strong></p>
+          <p>Please use this key to login. For security reasons, please do not share this key with anyone.</p>
+          <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Generated by PCB Tracker - Electrolyte Inventory</p>
+        </div>`
+      });
+    } catch (emailErr) {
+      console.error('Failed to send recovery email:', emailErr);
+      console.log(`[DEVELOPER MODE] Security Key for ${email}: ${newSecurityKey}`);
+    }
+
+    res.status(200).json({ message: 'If an account exists, the security key has been forwarded.' });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error.' });
   }
@@ -142,7 +168,7 @@ exports.approveUser = async (req, res) => {
 exports.listUsers = async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, username, is_approved, role, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, username, email, is_approved, role, created_at FROM users ORDER BY created_at DESC'
     );
     res.json({ users: result.rows });
   } catch (err) {

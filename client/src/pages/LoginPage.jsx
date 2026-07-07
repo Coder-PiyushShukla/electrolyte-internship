@@ -67,6 +67,7 @@ function CircuitArt() {
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -74,14 +75,14 @@ export default function LoginPage({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!username || !password) {
+    if (!username || !email || !password) {
       toast.error('Please fill in all fields.');
       return;
     }
 
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/login', { username, password });
+      const { data } = await api.post('/auth/login', { username, email, password });
       localStorage.setItem('pcb_token', data.token);
       localStorage.setItem('pcb_user', JSON.stringify(data.user));
       toast.success('Welcome back!');
@@ -213,7 +214,7 @@ export default function LoginPage({ onLogin }) {
 
               <div className="mb-5 relative group">
                 <label className="block text-[10px] uppercase tracking-[0.15em] font-semibold text-[#7d9186] mb-2 font-['JetBrains_Mono',monospace]">
-                  Username or Email
+                  Username
                 </label>
                 <div className="relative">
                   <span className="absolute left-0 top-0 w-3 h-3 border-l-2 border-t-2 border-[#4de8d4]/50 rounded-tl" />
@@ -223,7 +224,25 @@ export default function LoginPage({ onLogin }) {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Enter identifier (username/email)"
+                    placeholder="Enter username"
+                    className="w-full pl-12 pr-4 py-3.5 bg-[#060a08] border border-[#163b26] rounded-lg text-[#eaf2ec] placeholder:text-[#7d9186]/50 focus:outline-none focus:ring-1 focus:ring-[#4de8d4]/50 focus:border-[#4de8d4]/60 transition-all duration-300 font-['JetBrains_Mono',monospace] text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-5 relative group">
+                <label className="block text-[10px] uppercase tracking-[0.15em] font-semibold text-[#7d9186] mb-2 font-['JetBrains_Mono',monospace]">
+                  Email
+                </label>
+                <div className="relative">
+                  <span className="absolute left-0 top-0 w-3 h-3 border-l-2 border-t-2 border-[#4de8d4]/50 rounded-tl" />
+                  <span className="absolute right-0 bottom-0 w-3 h-3 border-r-2 border-b-2 border-[#4de8d4]/50 rounded-br" />
+                  <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#7d9186] group-focus-within:text-[#4de8d4] transition-colors" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter email address"
                     className="w-full pl-12 pr-4 py-3.5 bg-[#060a08] border border-[#163b26] rounded-lg text-[#eaf2ec] placeholder:text-[#7d9186]/50 focus:outline-none focus:ring-1 focus:ring-[#4de8d4]/50 focus:border-[#4de8d4]/60 transition-all duration-300 font-['JetBrains_Mono',monospace] text-sm"
                   />
                 </div>

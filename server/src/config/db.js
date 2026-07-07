@@ -20,6 +20,16 @@ pool.on('connect', () => {
   console.log('✅ Connected to PostgreSQL');
 });
 
+// Run database migrations on startup
+pool.query(`
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;
+  UPDATE users SET email = 'admin@example.com' WHERE username = 'admin' AND email IS NULL;
+`).then(() => {
+  console.log('🌱 Database migration complete: email column verified.');
+}).catch(err => {
+  console.error('❌ Database migration failed:', err);
+});
+
 pool.on('error', (err) => {
   console.error('❌ Unexpected PostgreSQL error:', err);
   process.exit(-1);

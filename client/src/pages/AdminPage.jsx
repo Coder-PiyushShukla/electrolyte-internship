@@ -221,30 +221,33 @@ export default function AdminPage() {
                         <FiUser className="w-4.5 h-4.5 text-surface-300" />
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-white font-semibold text-sm truncate">{user.username}</p>
-                        {user.role === 'admin' && (
-                          <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-full">
-                            Admin
-                          </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-white font-semibold text-sm truncate">{user.username}</p>
+                          {user.role === 'admin' && (
+                            <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-full">
+                              Admin
+                            </span>
+                          )}
+                          {!user.is_approved && (
+                            <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-amber-500/10 text-amber-500 rounded-full flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              Pending
+                            </span>
+                          )}
+                          {user.is_approved && user.role !== 'admin' && (
+                            <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-emerald-500/10 text-emerald-400 rounded-full">
+                              Approved
+                            </span>
+                          )}
+                        </div>
+                        {user.email && (
+                          <p className="text-xs text-surface-400 truncate mt-0.5">{user.email}</p>
                         )}
-                        {!user.is_approved && (
-                          <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-amber-500/10 text-amber-500 rounded-full flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            Pending
-                          </span>
-                        )}
-                        {user.is_approved && user.role !== 'admin' && (
-                          <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-emerald-500/10 text-emerald-400 rounded-full">
-                            Approved
-                          </span>
-                        )}
+                        <p className="text-xs text-surface-500 mt-0.5">
+                          Registered {formatDate(user.created_at)}
+                        </p>
                       </div>
-                      <p className="text-xs text-surface-500 mt-0.5">
-                        Registered {formatDate(user.created_at)}
-                      </p>
-                    </div>
                   </div>
 
                   {/* Actions */}
