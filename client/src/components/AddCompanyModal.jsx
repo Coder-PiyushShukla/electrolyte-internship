@@ -22,7 +22,7 @@ export default function AddCompanyModal({ onClose, onCreated }) {
     const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
     const handleSubmit = async () => {
-        if (!form.brand.trim()) { toast.error('Please enter a short company name (used as the brand key, e.g. "Havells").'); return; }
+        if (!form.brand.trim()) { toast.error('Please enter a short company name (used as the brand key, e.g. "Atomberg").'); return; }
         if (!form.companyName.trim()) { toast.error('Please enter the full company name for challans.'); return; }
 
         setSaving(true);
@@ -73,7 +73,7 @@ export default function AddCompanyModal({ onClose, onCreated }) {
                             <input
                                 value={form.brand}
                                 onChange={(e) => update('brand', e.target.value)}
-                                placeholder="e.g. Havells"
+                                placeholder="e.g. Atomberg"
                                 className={inputCls}
                             />
                             <p className="text-[11px] text-surface-500 mt-1">Shown in dropdowns and transaction lists.</p>
@@ -95,7 +95,7 @@ export default function AddCompanyModal({ onClose, onCreated }) {
                         <input
                             value={form.companyName}
                             onChange={(e) => update('companyName', e.target.value)}
-                            placeholder="e.g. Havells India Limited"
+                            placeholder="e.g. Atomberg Technologies Pvt. Ltd."
                             className={inputCls}
                         />
                     </div>

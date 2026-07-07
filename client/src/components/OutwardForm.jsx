@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     FiPlus, FiTrash2, FiMail, FiSave, FiChevronDown,
-    FiCheck, FiAlertCircle, FiHash, FiDownload, FiTruck, FiPackage, FiPlusCircle,
+    FiCheck, FiAlertCircle, FiHash, FiDownload, FiTruck, FiPackage,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import {
     getCustomers, getProducts, getCompanyInfo, peekNextDc, peekNextOutwardLot,
     checkInventory, createDispatch, generateDocument, downloadDispatchPdf, sendOutwardEmail,
 } from '../utils/outwardApi';
-import AddCompanyModal from './AddCompanyModal';
 import EwayBillModal from './EwayBillModal';
 import ItemCodeCombobox from './ItemCodeCombobox';
 
@@ -27,7 +26,6 @@ function emptyItemRow() {
 export default function OutwardForm({ user }) {
     const [customers, setCustomers] = useState([]);
     const [brand, setBrand] = useState('');
-    const [showAddCompany, setShowAddCompany] = useState(false);
     const [companyInfo, setCompanyInfo] = useState(null);
     const [showEwayModal, setShowEwayModal] = useState(false);
     const [products, setProducts] = useState([]);
@@ -235,16 +233,6 @@ export default function OutwardForm({ user }) {
 
     return (
         <>
-            {showAddCompany && (
-                <AddCompanyModal
-                    onClose={() => setShowAddCompany(false)}
-                    onCreated={(created) => {
-                        setCustomers((prev) => [...prev, created]);
-                        setBrand(created.brand);
-                        setShowAddCompany(false);
-                    }}
-                />
-            )}
             {showEwayModal && savedDispatch && (
                 <EwayBillModal
                     dispatch={savedDispatch}
@@ -285,14 +273,6 @@ export default function OutwardForm({ user }) {
                                 </select>
                                 <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowAddCompany(true)}
-                                title="Add a new company"
-                                className="flex items-center justify-center w-9 h-9 shrink-0 text-brand-400 bg-surface-800/60 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-brand-300 transition-all cursor-pointer"
-                            >
-                                <FiPlusCircle className="w-4 h-4" />
-                            </button>
                         </div>
                     </div>
 

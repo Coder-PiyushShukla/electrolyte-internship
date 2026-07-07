@@ -38,6 +38,67 @@ async function ensureTable() {
       created_at     TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+
+  await db.query(`
+    DO $$
+    BEGIN
+      IF to_regclass('public.pcb_transactions') IS NOT NULL THEN
+        ALTER TABLE pcb_transactions DROP CONSTRAINT IF EXISTS pcb_transactions_brand_name_check;
+      END IF;
+    END $$;
+  `);
+
+  await db.query(`
+    INSERT INTO brands (brand_key, company_name, address, phone, gstin, email, hsn_code, default_rate)
+    VALUES
+      (
+        'Atomberg',
+        'Atomberg Technologies Pvt. Ltd.',
+        'Mind Space Shelters LLP/Vithai Developers LLP, Gate No 51-59, Opp-Dana india, Bhamboli, Chakan, Pune - 410507',
+        '+91 7738590086',
+        '27AAKCA4836H1ZI',
+        '',
+        '85340000',
+        70
+      ),
+      (
+        'Bajaj',
+        'Bajaj Electricals Limited',
+        'Shed B7, Galal No.1,2,3,4,5,6,7A,7B & 8A, Antariksh Logidrome, Mumbai-Nasik Highway, Amane Village, Bhiwandi, Maharashtra - 421302',
+        '+91 9833999575',
+        '27AAACB2484Q1Z8',
+        '',
+        '85166000',
+        80
+      )
+    ON CONFLICT (brand_key) DO UPDATE SET
+      company_name = EXCLUDED.company_name,
+      address = EXCLUDED.address,
+      phone = EXCLUDED.phone,
+      gstin = EXCLUDED.gstin,
+      email = EXCLUDED.email,
+      hsn_code = EXCLUDED.hsn_code,
+      default_rate = EXCLUDED.default_rate
+  `);
+
+  await db.query(`
+    DO $$
+    BEGIN
+      DELETE FROM brands WHERE LOWER(brand_key) = 'havells';
+      IF to_regclass('public.pcb_transactions') IS NOT NULL THEN
+        DELETE FROM pcb_transactions WHERE LOWER(brand_name) = 'havells';
+      END IF;
+      IF to_regclass('public.lot_counters') IS NOT NULL THEN
+        DELETE FROM lot_counters WHERE LOWER(brand_name) = 'havells';
+      END IF;
+      IF to_regclass('public.outward_lot_counter') IS NOT NULL THEN
+        DELETE FROM outward_lot_counter WHERE LOWER(brand_name) = 'havells';
+      END IF;
+      IF to_regclass('public.outward_dispatches') IS NOT NULL THEN
+        DELETE FROM outward_dispatches WHERE LOWER(brand_name) = 'havells';
+      END IF;
+    END $$;
+  `);
 }
 
 function rowToCustomer(row) {

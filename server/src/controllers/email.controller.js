@@ -113,9 +113,6 @@ function buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows }) {
       </tr>`;
   }).join('');
 
-  const totalDiff = totalPhysical - totalChallan;
-  const totalDiffStr = totalDiff > 0 ? `+${totalDiff}` : String(totalDiff);
-
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;color:#1e293b;max-width:760px;">
     <h2 style="margin:0 0 4px;">PCB Verification Report</h2>
@@ -142,7 +139,7 @@ function buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows }) {
           <td colspan="2" style="padding:8px 10px;border:1px solid #e2e8f0;">TOTAL</td>
           <td style="padding:8px 10px;border:1px solid #e2e8f0;text-align:right;">${totalChallan}</td>
           <td style="padding:8px 10px;border:1px solid #e2e8f0;text-align:right;">${totalPhysical}</td>
-          <td style="padding:8px 10px;border:1px solid #e2e8f0;text-align:right;">${totalDiffStr}</td>
+          <td style="padding:8px 10px;border:1px solid #e2e8f0;"></td>
           <td style="padding:8px 10px;border:1px solid #e2e8f0;"></td>
         </tr>
       </tbody>

@@ -8,6 +8,7 @@ import MainPage from './pages/MainPage';
 import InwardPage from './pages/InwardPage';
 import OutwardPage from './pages/OutwardPage';
 import AdminPage from './pages/AdminPage';
+import CompanyOnboardingPage from './pages/CompanyOnboardingPage';
 import NotificationsPage from './pages/NotificationsPage';
 import Navbar from './components/Navbar';
 
@@ -69,7 +70,10 @@ function App() {
               <Route path="/outward" element={<OutwardPage user={user} />} />
               <Route path="/notifications" element={<NotificationsPage user={user} />} />
               {user?.role === 'admin' && (
-                <Route path="/admin" element={<AdminPage />} />
+                <>
+                  <Route path="/company-onboarding" element={<CompanyOnboardingPage />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                </>
               )}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

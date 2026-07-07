@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- 3. PCB Transactions table
 CREATE TABLE IF NOT EXISTS pcb_transactions (
     id                SERIAL PRIMARY KEY,
-    brand_name        VARCHAR(50)  NOT NULL CHECK (brand_name IN ('Atomberg', 'Bajaj')),
+    brand_name        VARCHAR(50)  NOT NULL,
     transaction_type  transaction_type_enum NOT NULL,
     dc_number         VARCHAR(100) NOT NULL,
     transaction_date  DATE         NOT NULL,

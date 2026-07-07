@@ -204,7 +204,6 @@ function parseFlatFormat(worksheet, headerMap) {
     throw new Error(`Missing required columns: ${missingCols.join(', ')}. Found headers: ${Object.keys(headerMap).join(', ')}`);
   }
 
-  const validBrands = ['atomberg', 'bajaj'];
   const validStatus = ['ok', 'scrap'];
 
   worksheet.eachRow((row, rowNumber) => {
@@ -223,8 +222,8 @@ function parseFlatFormat(worksheet, headerMap) {
       if (!rawBrand && !rawType && !rawDC && !rawPartCode) return;
 
       const brand = rawBrand.charAt(0).toUpperCase() + rawBrand.slice(1).toLowerCase();
-      if (!validBrands.includes(brand.toLowerCase())) {
-        errors.push({ row: rowNumber, message: `Invalid brand "${rawBrand}".` });
+      if (!rawBrand) {
+        errors.push({ row: rowNumber, message: 'Brand is required.' });
         return;
       }
 

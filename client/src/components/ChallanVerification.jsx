@@ -2,13 +2,12 @@ import { useState, useCallback, useEffect } from 'react';
 import {
     FiPlus, FiTrash2, FiMail, FiSave, FiClock, FiSearch,
     FiChevronDown, FiFileText, FiX, FiCheck, FiAlertTriangle,
-    FiAlertCircle, FiEye, FiHash, FiPlusCircle,
+    FiAlertCircle, FiEye, FiHash,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { lookupDescription, getItemCodes } from '../data/masterData';
 import { peekNextLotNo, incrementLotNo, sendChallanReportEmail, recordInwardInventory } from '../utils/lotAndEmail';
 import { getCustomers } from '../utils/outwardApi';
-import AddCompanyModal from './AddCompanyModal';
 import ItemCodeCombobox from './ItemCodeCombobox';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -17,7 +16,8 @@ const STORAGE_KEY = 'pcb_challan_history';
 
 function loadHistory() {
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+            .filter((entry) => String(entry?.brand || '').toLowerCase() !== 'havells');
     } catch {
         return [];
     }
@@ -111,9 +111,6 @@ function buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows }) {
       </tr>`;
     }).join('');
 
-    const totalDiff = totalPhysical - totalChallan;
-    const totalDiffStr = totalDiff > 0 ? `+${totalDiff}` : String(totalDiff);
-
     return `
   <div style="font-family:Arial,Helvetica,sans-serif;color:#1e293b;max-width:760px;">
     <h2 style="margin:0 0 4px;">PCB Verification Report</h2>
@@ -140,7 +137,7 @@ function buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows }) {
           <td colspan="2" style="padding:8px 10px;border:1px solid #e2e8f0;">TOTAL</td>
           <td style="padding:8px 10px;border:1px solid #e2e8f0;text-align:right;">${totalChallan}</td>
           <td style="padding:8px 10px;border:1px solid #e2e8f0;text-align:right;">${totalPhysical}</td>
-          <td style="padding:8px 10px;border:1px solid #e2e8f0;text-align:right;">${totalDiffStr}</td>
+          <td style="padding:8px 10px;border:1px solid #e2e8f0;"></td>
           <td style="padding:8px 10px;border:1px solid #e2e8f0;"></td>
         </tr>
       </tbody>
@@ -254,7 +251,6 @@ function VerifyReportModal({ onClose, challanNo, emailTo, htmlBody }) {
 export default function ChallanVerification() {
     const [brand, setBrand] = useState('Bajaj');
     const [companies, setCompanies] = useState([]);
-    const [showAddCompany, setShowAddCompany] = useState(false);
     const [challanNo, setChallanNo] = useState('');
     const [challanDate, setChallanDate] = useState(new Date().toISOString().split('T')[0]);
     const [lotNo, setLotNo] = useState(null); // auto-calculated, never user-editable
@@ -383,7 +379,8 @@ export default function ChallanVerification() {
     // ── Load from History ──
 
     const handleLoad = (h) => {
-        setBrand(h.brand || 'Bajaj');
+        const loadedBrand = companies.some((c) => c.brand === h.brand) ? h.brand : 'Bajaj';
+        setBrand(loadedBrand);
         setChallanNo(h.challanNo);
         setChallanDate(h.challanDate);
         setLotNo(h.lotNo ?? null);
@@ -429,16 +426,6 @@ export default function ChallanVerification() {
 
     return (
         <>
-            {showAddCompany && (
-                <AddCompanyModal
-                    onClose={() => setShowAddCompany(false)}
-                    onCreated={(created) => {
-                        setCompanies((prev) => [...prev, created]);
-                        setBrand(created.brand);
-                        setShowAddCompany(false);
-                    }}
-                />
-            )}
             {showHistory && <HistoryModal onClose={() => setShowHistory(false)} onLoad={handleLoad} />}
             {showVerify && (
                 <VerifyReportModal
@@ -488,14 +475,6 @@ export default function ChallanVerification() {
                                     </select>
                                     <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAddCompany(true)}
-                                    title="Add a new company"
-                                    className="flex items-center justify-center w-9 h-9 shrink-0 text-brand-400 bg-surface-800/60 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-brand-300 transition-all cursor-pointer"
-                                >
-                                    <FiPlusCircle className="w-4 h-4" />
-                                </button>
                             </div>
                         </div>
                         {/* Challan No */}

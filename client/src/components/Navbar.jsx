@@ -43,13 +43,21 @@ export default function Navbar({ user, onLogout }) {
               Outward
             </NavLink>
             {user?.role === 'admin' && (
-              <NavLink
-                to="/admin"
-                className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive} flex items-center gap-1.5`}
-              >
-                <FiShield className="w-3.5 h-3.5 text-amber-400" />
-                Admin
-              </NavLink>
+              <>
+                <NavLink
+                  to="/company-onboarding"
+                  className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+                >
+                  Company Onboarding
+                </NavLink>
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive} flex items-center gap-1.5`}
+                >
+                  <FiShield className="w-3.5 h-3.5 text-amber-400" />
+                  Admin
+                </NavLink>
+              </>
             )}
           </div>
 
@@ -92,13 +100,21 @@ export default function Navbar({ user, onLogout }) {
             Outward
           </NavLink>
           {user?.role === 'admin' && (
-            <NavLink
-              to="/admin"
-              className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive} flex items-center gap-1.5`}
-            >
-              <FiShield className="w-3.5 h-3.5 text-amber-400" />
-              Admin
-            </NavLink>
+            <>
+              <NavLink
+                to="/company-onboarding"
+                className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive}`}
+              >
+                Company Onboarding
+              </NavLink>
+              <NavLink
+                to="/admin"
+                className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkInactive} flex items-center gap-1.5`}
+              >
+                <FiShield className="w-3.5 h-3.5 text-amber-400" />
+                Admin
+              </NavLink>
+            </>
           )}
         </div>
       </div>
