@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { FiUploadCloud, FiRefreshCw, FiTrendingUp, FiTrendingDown, FiPackage } from 'react-icons/fi';
+import { FiUploadCloud, FiRefreshCw, FiTrendingUp, FiTrendingDown, FiPackage, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import Tilt from 'react-parallax-tilt';
 import {
@@ -138,6 +138,13 @@ export default function MainPage({ user }) {
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [monthlyMode, setMonthlyMode] = useState('volume'); // 'volume' | 'share'
+  const [brandFilter, setBrandFilter] = useState('');
+  const [sortOption, setSortOption] = useState('pending_desc');
+  const [visibleCount, setVisibleCount] = useState(8);
+
+  useEffect(() => {
+    setVisibleCount(8);
+  }, [brandFilter, sortOption]);
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
@@ -186,6 +193,44 @@ export default function MainPage({ user }) {
   ), [summary]);
 
   const topPending = useMemo(() => partRows.slice(0, 10), [partRows]);
+
+  const availableBrands = useMemo(() => {
+    const brandsSet = new Set(summary.map(s => s.brand_name).filter(Boolean));
+    return Array.from(brandsSet).sort();
+  }, [summary]);
+
+  const filteredAndSortedPartRows = useMemo(() => {
+    let rows = summary.map((s) => ({
+      code: s.part_code,
+      brand: s.brand_name,
+      inward: Number(s.total_in || 0),
+      outward: Number(s.total_out || 0),
+      pending: Number(s.balance || 0),
+    }));
+
+    if (brandFilter) {
+      rows = rows.filter((r) => r.brand === brandFilter);
+    }
+
+    if (sortOption === 'pending_desc') {
+      rows.sort((a, b) => b.pending - a.pending);
+    } else if (sortOption === 'pending_asc') {
+      rows.sort((a, b) => a.pending - b.pending);
+    } else if (sortOption === 'brand_asc') {
+      rows.sort((a, b) => a.brand.localeCompare(b.brand));
+    }
+
+    return rows;
+  }, [summary, brandFilter, sortOption]);
+
+  const visiblePartRows = useMemo(() => {
+    return filteredAndSortedPartRows.slice(0, visibleCount);
+  }, [filteredAndSortedPartRows, visibleCount]);
+
+  const filteredPendingTotal = useMemo(() => filteredAndSortedPartRows.reduce((s, r) => s + r.pending, 0), [filteredAndSortedPartRows]);
+
+  const hasMoreParts = visibleCount < filteredAndSortedPartRows.length;
+  const isPartsExpanded = visibleCount > 8;
 
   const monthlyChart = useMemo(() => (
     monthly.map((m) => {
@@ -398,10 +443,44 @@ export default function MainPage({ user }) {
 
           {/* Row 4: Part-code inventory table */}
           <motion.div variants={itemVariants} className="bg-surface-900/40 backdrop-blur-xl border border-surface-700/50 rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-            <h3 className="text-sm font-semibold text-surface-300 mb-5 uppercase tracking-widest flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-              Part Code Inventory ({partRows.length})
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-5 border-b border-surface-800/80 pb-4">
+              <h3 className="text-sm font-semibold text-surface-300 uppercase tracking-widest flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+                Part Code Inventory ({filteredAndSortedPartRows.length})
+              </h3>
+              
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Brand Filter */}
+                <div className="relative">
+                  <select
+                    value={brandFilter}
+                    onChange={(e) => setBrandFilter(e.target.value)}
+                    className="appearance-none bg-surface-800/60 border border-surface-700 text-surface-200 text-xs rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer font-semibold"
+                  >
+                    <option value="">All Brands</option>
+                    {availableBrands.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                  <FiChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-500 pointer-events-none" />
+                </div>
+
+                {/* Sort Option */}
+                <div className="relative">
+                  <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value)}
+                    className="appearance-none bg-surface-800/60 border border-surface-700 text-surface-200 text-xs rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer font-semibold"
+                  >
+                    <option value="pending_desc">Pending Descending</option>
+                    <option value="pending_asc">Pending Ascending</option>
+                    <option value="brand_asc">Brand (A-Z)</option>
+                  </select>
+                  <FiChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-surface-500 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -414,30 +493,77 @@ export default function MainPage({ user }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {partRows.map((r) => (
-                    <tr key={`${r.brand}-${r.code}`} className="border-b border-surface-800/50 hover:bg-surface-800/40 transition-colors">
-                      <td className="py-2.5 pr-4 text-surface-200 font-medium break-words max-w-[320px]">{r.code}</td>
-                      <td className="py-2.5 px-3">
-                        <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-surface-700/50 text-surface-300 rounded-full">{r.brand}</span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-emerald-400 font-mono">{r.inward.toLocaleString()}</td>
-                      <td className="py-2.5 px-3 text-right text-orange-400 font-mono">{r.outward.toLocaleString()}</td>
-                      <td className={`py-2.5 pl-3 text-right font-mono font-semibold ${r.pending < 0 ? 'text-red-400' : 'text-brand-300'}`}>
-                        {r.pending.toLocaleString()}
+                  {visiblePartRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-surface-500">
+                        No part codes found matching filters.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    visiblePartRows.map((r) => (
+                      <tr key={`${r.brand}-${r.code}`} className="border-b border-surface-800/50 hover:bg-surface-800/40 transition-colors">
+                        <td className="py-2.5 pr-4 text-surface-200 font-medium break-words max-w-[320px]">{r.code}</td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-surface-700/50 text-surface-300 rounded-full">{r.brand}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-emerald-400 font-mono">{r.inward.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-right text-orange-400 font-mono">{r.outward.toLocaleString()}</td>
+                        <td className={`py-2.5 pl-3 text-right font-mono font-semibold ${r.pending < 0 ? 'text-red-400' : 'text-brand-300'}`}>
+                          {r.pending.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-surface-700/60 font-semibold text-white">
                     <td className="py-3 pr-4 uppercase text-xs tracking-wider text-surface-400" colSpan={2}>Grand Total</td>
-                    <td className="py-3 px-3 text-right font-mono text-emerald-400">{partRows.reduce((s, r) => s + r.inward, 0).toLocaleString()}</td>
-                    <td className="py-3 px-3 text-right font-mono text-orange-400">{partRows.reduce((s, r) => s + r.outward, 0).toLocaleString()}</td>
-                    <td className="py-3 pl-3 text-right font-mono text-brand-300">{pendingTotal.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right font-mono text-emerald-400">{filteredAndSortedPartRows.reduce((s, r) => s + r.inward, 0).toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right font-mono text-orange-400">{filteredAndSortedPartRows.reduce((s, r) => s + r.outward, 0).toLocaleString()}</td>
+                    <td className="py-3 pl-3 text-right font-mono text-brand-300">{filteredPendingTotal.toLocaleString()}</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
+
+            {/* Pagination/Expander for Part Code Inventory */}
+            {filteredAndSortedPartRows.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-surface-800 flex items-center justify-between gap-3 flex-wrap text-xs">
+                <span className="text-surface-500">
+                  Showing {visiblePartRows.length} of {filteredAndSortedPartRows.length} part code{filteredAndSortedPartRows.length !== 1 ? 's' : ''}
+                </span>
+                {(hasMoreParts || isPartsExpanded) && (
+                  <div className="flex items-center gap-2">
+                    {hasMoreParts && (
+                      <button
+                        onClick={() => setVisibleCount((c) => Math.min(c + 8, filteredAndSortedPartRows.length))}
+                        className="flex items-center gap-1.5 px-3 py-1.5 font-medium text-brand-400 bg-brand-500/10 border border-brand-500/25 rounded-lg hover:bg-brand-500/20 transition-all duration-200 cursor-pointer"
+                      >
+                        <FiChevronDown className="w-3.5 h-3.5" />
+                        Show more
+                      </button>
+                    )}
+                    {hasMoreParts && (
+                      <button
+                        onClick={() => setVisibleCount(filteredAndSortedPartRows.length)}
+                        className="px-3 py-1.5 font-medium text-surface-400 hover:text-white hover:bg-surface-800 rounded-lg transition-all duration-200 cursor-pointer"
+                      >
+                        Show all
+                      </button>
+                    )}
+                    {isPartsExpanded && (
+                      <button
+                        onClick={() => setVisibleCount(8)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 font-medium text-surface-400 hover:text-white hover:bg-surface-800 rounded-lg transition-all duration-200 cursor-pointer"
+                      >
+                        <FiChevronUp className="w-3.5 h-3.5" />
+                        Show less
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         </>
       )}
