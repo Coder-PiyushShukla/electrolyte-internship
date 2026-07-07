@@ -33,6 +33,9 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
 });
 
+// GET /api/upload/template?brand=Bajaj&type=inward (protected)
+router.get('/template', auth, uploadCtrl.downloadTemplate);
+
 // POST /api/upload (protected)
 router.post('/', auth, upload.single('file'), uploadCtrl.uploadFile);
 

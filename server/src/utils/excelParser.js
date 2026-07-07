@@ -78,8 +78,12 @@ function parsePivotedFormat(worksheet, headerMap, headerNames) {
 
   const transactionType = dcOutKey ? 'out_ward' : 'in_ward';
   // Infer Brand from headers (Efficio, Renesa, Ozeo are Atomberg models)
-  const isAtomberg = Object.keys(headerMap).some(k => k.includes('efficio') || k.includes('renesa') || k.includes('ozeo'));
+  const isAtomberg = Object.keys(headerMap).some(k => k.includes('efficio') || k.includes('renesa') || k.includes('ozeo') || k.includes('sa00'));
   const defaultBrand = isAtomberg ? 'Atomberg' : 'Bajaj';
+
+  if (!dcCol) {
+    throw new Error(`Missing required DC No. column. Found headers: ${headerKeys.join(', ')}`);
+  }
 
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return; // skip header
@@ -88,7 +92,7 @@ function parsePivotedFormat(worksheet, headerMap, headerNames) {
     if (!rawDC) return; // Skip empty rows
     
     // Parse Date safely
-    const rawDate = row.getCell(dateCol).value;
+    const rawDate = dateCol ? row.getCell(dateCol).value : '';
     let parsedDate = null;
     if (rawDate instanceof Date) {
       parsedDate = rawDate.toISOString().split('T')[0];
@@ -135,6 +139,18 @@ function parsePivotedFormat(worksheet, headerMap, headerNames) {
       
       const lowerHeader = headerName.toLowerCase();
       if (lowerHeader.includes('grand total') || lowerHeader.startsWith('re')) return;
+
+      let partCode = headerName;
+      let status = null;
+      if (transactionType === 'out_ward') {
+        const statusMatch = headerName.match(/\s+(ok|scrap)$/i);
+        if (statusMatch) {
+          status = statusMatch[1].toLowerCase();
+          partCode = headerName.slice(0, statusMatch.index).trim();
+        } else {
+          status = 'ok';
+        }
+      }
       
       // If cell has a number > 0, create a transaction record for this part
       const qty = parseInt(cell.value, 10);
@@ -144,9 +160,9 @@ function parsePivotedFormat(worksheet, headerMap, headerNames) {
           transaction_type: transactionType,
           dc_number: rawDC,
           transaction_date: parsedDate,
-          part_code: headerName, // Use exact header name as the part code
+          part_code: partCode,
           quantity: qty,
-          status: null,
+          status,
           remarks: remarks || null
         });
       }

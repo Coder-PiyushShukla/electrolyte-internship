@@ -1,12 +1,15 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { FiUploadCloud, FiX, FiFile, FiCheck, FiAlertCircle } from 'react-icons/fi';
+import { FiUploadCloud, FiX, FiFile, FiCheck, FiAlertCircle, FiDownload, FiChevronDown } from 'react-icons/fi';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
 export default function UploadModal({ isOpen, onClose, onUploaded }) {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateBrand, setTemplateBrand] = useState('Bajaj');
+  const [templateType, setTemplateType] = useState('inward');
   const [result, setResult] = useState(null);
 
   const onDrop = useCallback((acceptedFiles) => {
@@ -27,6 +30,33 @@ export default function UploadModal({ isOpen, onClose, onUploaded }) {
   });
 
   if (!isOpen) return null;
+
+  const handleDownloadTemplate = async () => {
+    setTemplateLoading(true);
+    try {
+      const response = await api.get('/upload/template', {
+        params: { brand: templateBrand, type: templateType },
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const fileName = `${templateBrand}_${templateType === 'outward' ? 'Outward' : 'Inward'}_Pivoted_Template.xlsx`;
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Format file downloaded.');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to download format file.');
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
 
   const handleUpload = async () => {
     if (!file) {
@@ -75,6 +105,53 @@ export default function UploadModal({ isOpen, onClose, onUploaded }) {
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Format Download */}
+          <div className="p-4 bg-surface-800/30 rounded-xl border border-surface-700/50 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-surface-400 mb-1.5">Brand</label>
+                <div className="relative">
+                  <select
+                    value={templateBrand}
+                    onChange={(e) => setTemplateBrand(e.target.value)}
+                    className="appearance-none w-full bg-surface-800/60 border border-surface-700 text-white rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                  >
+                    <option value="Bajaj">Bajaj</option>
+                    <option value="Atomberg">Atomberg</option>
+                  </select>
+                  <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-surface-400 mb-1.5">Type</label>
+                <div className="relative">
+                  <select
+                    value={templateType}
+                    onChange={(e) => setTemplateType(e.target.value)}
+                    className="appearance-none w-full bg-surface-800/60 border border-surface-700 text-white rounded-xl px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                  >
+                    <option value="inward">Inward</option>
+                    <option value="outward">Outward</option>
+                  </select>
+                  <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              disabled={templateLoading}
+              className="w-full py-2.5 px-4 bg-surface-800/80 border border-surface-700 text-surface-200 font-medium rounded-xl hover:bg-surface-700 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {templateLoading ? (
+                <div className="w-4 h-4 border-2 border-surface-500 border-t-white rounded-full animate-spin" />
+              ) : (
+                <FiDownload className="w-4 h-4" />
+              )}
+              {templateLoading ? 'Preparing...' : 'Download Format'}
+            </button>
+          </div>
+
           {/* Dropzone */}
           <div
             {...getRootProps()}
