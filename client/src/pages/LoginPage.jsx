@@ -7,9 +7,9 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 const BOOT_LINES = [
-  '> INITIALIZING BOARD CONTROLLER...',
-  '> TRACE MAP LOADED [OK]',
-  '> POWER RAIL: STABLE 3.3V',
+  '> INITIALIZING PCB MANAGEMENT SYSTEM...',
+  '> INVENTORY DATABASE CONNECTED [OK]',
+  '> INWARD & OUTWARD MODULES READY [OK]',
   '> AWAITING OPERATOR AUTH_',
 ];
 
@@ -144,7 +144,7 @@ export default function LoginPage({ onLogin }) {
             transition={{ delay: 3.3 }}
             className="mt-2 text-[#7d9186] text-sm text-center max-w-sm"
           >
-            Real-time electrolyte capacitor inventory, mapped like the board it protects.
+            A unified PCB inventory management system for tracking inward receipts, verifying discrepancies, managing outward dispatches, and generating compliant delivery documents.
           </motion.p>
         </div>
       </div>
