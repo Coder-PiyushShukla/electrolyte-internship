@@ -205,17 +205,22 @@ exports.sendReport = async (req, res) => {
 
     // ── Strategy 2: Try Resend (HTTP API - works on Render free tier) ──
     if (process.env.RESEND_API_KEY) {
-      console.log('📧 Sending email via Resend API...');
-      const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
-      await sendViaResend({
-        to: to.trim(),
-        from: resendFrom,
-        subject,
-        html,
-        text,
-      });
-      await notifyReportSent({ actor, to: recipient, challanNo, brand, lotNo, provider: 'Resend' });
-      return res.json({ message: 'Email successfully sent via Resend.' });
+      try {
+        console.log('📧 Sending email via Resend API...');
+        const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
+        await sendViaResend({
+          to: to.trim(),
+          from: resendFrom,
+          subject,
+          html,
+          text,
+        });
+        await notifyReportSent({ actor, to: recipient, challanNo, brand, lotNo, provider: 'Resend' });
+        return res.json({ message: 'Email successfully sent via Resend.' });
+      } catch (resendErr) {
+        console.warn('⚠️ Resend API failed, falling back to SMTP:', resendErr.message);
+        // Fall through to SMTP
+      }
     }
 
     // ── Strategy 3: Fallback to SMTP (works locally) ──
@@ -269,9 +274,13 @@ async function sendEmail({ to, subject, text, html }) {
 
   // Strategy 2: Resend
   if (process.env.RESEND_API_KEY) {
-    const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
-    await sendViaResend({ to, from: resendFrom, subject, html: html || text, text });
-    return;
+    try {
+      const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
+      await sendViaResend({ to, from: resendFrom, subject, html: html || text, text });
+      return;
+    } catch (resendErr) {
+      console.warn('⚠️ sendEmail: Resend failed, trying SMTP:', resendErr.message);
+    }
   }
 
   // Strategy 3: SMTP

@@ -8,24 +8,24 @@ async function seed() {
   try {
     console.log('🌱 Seeding database...');
 
-    // Check if admin exists
-    const existing = await db.query('SELECT id FROM users WHERE username = $1', ['admin']);
-    if (existing.rows.length > 0) {
-      console.log('ℹ️  Admin user already exists. Skipping seed.');
-      process.exit(0);
-    }
-
-    // Create admin user
+    // Create or update admin user (with email)
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash('admin123', salt);
 
     await db.query(
-      'INSERT INTO users (username, password_hash, is_approved, role) VALUES ($1, $2, $3, $4)',
-      ['admin', hash, true, 'admin']
+      `INSERT INTO users (username, email, password_hash, is_approved, role)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (username) DO UPDATE
+       SET email = EXCLUDED.email,
+           password_hash = EXCLUDED.password_hash,
+           is_approved = EXCLUDED.is_approved,
+           role = EXCLUDED.role`,
+      ['admin', 'admin@gmail.com', hash, true, 'admin']
     );
 
-    console.log('✅ Admin user created successfully.');
+    console.log('✅ Admin user created/updated successfully.');
     console.log('   Username: admin');
+    console.log('   Email:    admin@gmail.com');
     console.log('   Password: admin123');
     process.exit(0);
   } catch (err) {

@@ -188,17 +188,22 @@ exports.sendOutwardEmail = async (req, res) => {
 
     // ── Strategy 2: Try Resend (HTTP API - works on Render free tier) ──
     if (process.env.RESEND_API_KEY) {
-      console.log('📧 Sending outward email via Resend API...');
-      const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
-      await sendViaResend({
-        to: to.trim(),
-        from: resendFrom,
-        subject,
-        html,
-        attachments: [{ filename: pdfFilename, path: pdfPath }],
-      });
-      await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'Resend' });
-      return res.json({ message: 'Email successfully sent via Resend.' });
+      try {
+        console.log('📧 Sending outward email via Resend API...');
+        const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
+        await sendViaResend({
+          to: to.trim(),
+          from: resendFrom,
+          subject,
+          html,
+          attachments: [{ filename: pdfFilename, path: pdfPath }],
+        });
+        await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'Resend' });
+        return res.json({ message: 'Email successfully sent via Resend.' });
+      } catch (resendErr) {
+        console.warn('⚠️ Resend API failed, falling back to SMTP:', resendErr.message);
+        // Fall through to SMTP
+      }
     }
 
     // ── Strategy 3: Fallback to SMTP (works locally) ──

@@ -23,7 +23,7 @@ pool.on('connect', () => {
 // Run database migrations on startup
 pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;
-  UPDATE users SET email = 'admin@example.com' WHERE username = 'admin' AND email IS NULL;
+  UPDATE users SET email = 'admin@gmail.com' WHERE username = 'admin' AND email IS NULL;
 `).then(() => {
   console.log('🌱 Database migration complete: email column verified.');
 }).catch(err => {

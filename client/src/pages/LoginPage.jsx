@@ -11,7 +11,7 @@ const BOOT_LINES = [
   '> INVENTORY DATABASE CONNECTED [OK]',
   '> INWARD & OUTWARD MODULES READY [OK]',
   '> AWAITING OPERATOR AUTH_',
-];fi
+];
 
 function CircuitArt() {
   const trace = {
