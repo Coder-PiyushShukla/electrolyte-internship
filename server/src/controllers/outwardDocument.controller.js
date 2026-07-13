@@ -5,6 +5,7 @@ const fs = require('fs');
 const PdfPrinter = require('pdfmake');
 const db = require('../config/db');
 const { getCompany } = require('../config/companyData');
+const { evaluateEwayRequirement } = require('../utils/ewayRules');
 
 const PDF_DIR = path.join(__dirname, '..', '..', 'outward_pdfs');
 if (!fs.existsSync(PDF_DIR)) fs.mkdirSync(PDF_DIR, { recursive: true });
@@ -32,6 +33,34 @@ function formatDate(d) {
 
 function safe(val) {
   return String(val ?? '');
+}
+
+function displayMovementType(type) {
+  if (type === 'INTRA_STATE') return 'Intra-State';
+  if (type === 'INTER_STATE') return 'Inter-State';
+  return '-';
+}
+
+function buildEwayRows(dispatch) {
+  const eway = dispatch.eway || null;
+  const required = Boolean(dispatch.eway_required);
+  const rows = [
+    ['Transport Mode', 'Road'],
+    ['Vehicle No.', safe(dispatch.vehicle_no || '-')],
+    ['Courier Partner', safe(dispatch.courier_partner || '-')],
+    ['Movement Type', displayMovementType(dispatch.eway_movement_type)],
+    ['Consignment Value', `Rs. ${formatCurrency(dispatch.total_amount)}`],
+    ['E-Way Bill Applicable', required ? 'Yes' : 'No'],
+  ];
+
+  if (required) {
+    rows.push(['E-Way Bill No.', safe(eway?.eway_bill_no || '-')]);
+    rows.push(['E-Way Bill Date', eway?.eway_bill_date ? formatDate(eway.eway_bill_date) : '-']);
+  } else {
+    rows.push(['Reason', safe(dispatch.eway_reason || 'Consignment value below applicable threshold')]);
+  }
+
+  return rows;
 }
 
 // ── Build the pdfmake document definition ──
@@ -104,6 +133,8 @@ function buildDocDefinition(dispatch) {
       totalValue: { fontSize: 10, bold: true, color: '#1e293b', alignment: 'right' },
       grandTotalLabel: { fontSize: 10, bold: true, color: '#ffffff' },
       grandTotalValue: { fontSize: 10, bold: true, color: '#ffffff', alignment: 'right' },
+      ewayLabel: { fontSize: 9, color: '#64748b' },
+      ewayValue: { fontSize: 9, bold: true, color: '#1e293b' },
     },
     content: [
       // ── Header: Company Info + Logo Box ──
@@ -194,9 +225,11 @@ function buildDocDefinition(dispatch) {
       {
         table: {
           headerRows: 1,
-          widths: [22, 60, '*', 48, 32, 42, 36, 50, 56],
+          widths: [20, 54, 138, 46, 30, 40, 34, 44, 50],
           body: [tableHeader, ...tableRows],
         },
+        fontSize: 8,
+        dontBreakRows: true,
         layout: {
           hLineWidth: () => 0.5,
           vLineWidth: () => 0.5,
@@ -211,6 +244,32 @@ function buildDocDefinition(dispatch) {
       },
 
       // ── Totals Box (right-aligned) ──
+      {
+        text: 'TRANSPORT & E-WAY BILL DETAILS',
+        style: 'sectionHeader',
+        margin: [0, 0, 0, 6],
+      },
+      {
+        table: {
+          widths: [130, '*'],
+          body: buildEwayRows(dispatch).map(([label, value]) => [
+            { text: label, style: 'ewayLabel' },
+            { text: value, style: 'ewayValue' },
+          ]),
+        },
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => '#e2e8f0',
+          vLineColor: () => '#e2e8f0',
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 4,
+          paddingBottom: () => 4,
+        },
+        margin: [0, 0, 0, 14],
+      },
+
       {
         columns: [
           { width: '*', text: '' },
@@ -232,8 +291,12 @@ function buildDocDefinition(dispatch) {
                   { text: String(scrapQty), style: 'totalValue' },
                 ],
                 [
-                  { text: 'Grand Total Qty / Amount', style: 'grandTotalLabel', fillColor: '#1e3a8a' },
-                  { text: `${grandQty} / ₹${formatCurrency(dispatch.total_amount)}`, style: 'grandTotalValue', fillColor: '#1e3a8a' },
+                  { text: 'Grand Total Qty', style: 'grandTotalLabel', fillColor: '#1e3a8a' },
+                  { text: String(grandQty), style: 'grandTotalValue', fillColor: '#1e3a8a' },
+                ],
+                [
+                  { text: 'Grand Total Amount', style: 'grandTotalLabel', fillColor: '#1e3a8a' },
+                  { text: `Rs. ${formatCurrency(dispatch.total_amount)}`, style: 'grandTotalValue', fillColor: '#1e3a8a' },
                 ],
               ],
             },
@@ -327,6 +390,87 @@ async function generatePdfFile(dispatch) {
   });
 }
 
+function createPdfBuffer(dispatch) {
+  const docDefinition = buildDocDefinition(dispatch);
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+    pdfDoc.on('data', (chunk) => chunks.push(chunk));
+    pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
+    pdfDoc.on('error', reject);
+    pdfDoc.end();
+  });
+}
+
+// POST /api/outward/preview-document
+exports.previewDocument = async (req, res) => {
+  try {
+    const {
+      brand, companyName, companyAddress, phoneNo, gstin,
+      vehicleNo, courierPartner, challanDate, remarks, items,
+      dcNo, lotNo,
+    } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'At least one item row is required for preview.' });
+    }
+
+    const normalizedItems = items.map((item, index) => {
+      const qty = parseInt(item.quantity, 10) || 0;
+      const rate = parseFloat(item.rate) || 0;
+      return {
+        id: index + 1,
+        item_code: item.itemCode,
+        description: item.description,
+        status: item.status,
+        hsn_code: item.hsnCode,
+        unit: item.unit || 'Nos',
+        quantity: qty,
+        rate,
+        amount: qty * rate,
+      };
+    });
+    const totalQty = normalizedItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalAmount = normalizedItems.reduce((sum, item) => sum + item.amount, 0);
+    const ewayInfo = await evaluateEwayRequirement({
+      supplierGstin: getCompany().gstin,
+      customerGstin: gstin,
+      totalAmount,
+    });
+
+    const dispatch = {
+      id: 'preview',
+      dc_no: dcNo || 'PREVIEW',
+      lot_no: lotNo || '-',
+      brand_name: brand,
+      company_name: companyName,
+      company_address: companyAddress,
+      phone_no: phoneNo,
+      gstin,
+      vehicle_no: vehicleNo,
+      courier_partner: courierPartner,
+      challan_date: challanDate || new Date(),
+      remarks,
+      total_qty: totalQty,
+      total_amount: totalAmount,
+      eway_required: ewayInfo.required,
+      eway_movement_type: ewayInfo.movementType,
+      eway_threshold_amount: ewayInfo.thresholdAmount,
+      eway_portal_url: ewayInfo.portalUrl,
+      eway_reason: ewayInfo.reason,
+      items: normalizedItems,
+    };
+
+    const buffer = await createPdfBuffer(dispatch);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="outward-preview.pdf"');
+    res.send(buffer);
+  } catch (err) {
+    console.error('Preview document error:', err);
+    res.status(500).json({ error: `Failed to preview document: ${err.message}` });
+  }
+};
+
 // POST /api/outward/generate-document  { dispatchId }
 exports.generateDocument = async (req, res) => {
   try {
@@ -336,8 +480,9 @@ exports.generateDocument = async (req, res) => {
     const dispatchResult = await db.query('SELECT * FROM outward_dispatches WHERE id = $1', [dispatchId]);
     if (dispatchResult.rows.length === 0) return res.status(404).json({ error: 'Dispatch not found.' });
     const itemsResult = await db.query('SELECT * FROM outward_dispatch_items WHERE dispatch_id = $1 ORDER BY id', [dispatchId]);
+    const ewayResult = await db.query('SELECT * FROM outward_eway_bills WHERE dispatch_id = $1', [dispatchId]);
 
-    const dispatch = { ...dispatchResult.rows[0], items: itemsResult.rows };
+    const dispatch = { ...dispatchResult.rows[0], items: itemsResult.rows, eway: ewayResult.rows[0] || null };
     const { filePath, fileName } = await generatePdfFile(dispatch);
 
     await db.query('UPDATE outward_dispatches SET pdf_path = $1 WHERE id = $2', [filePath, dispatchId]);
@@ -362,7 +507,8 @@ exports.downloadDocument = async (req, res) => {
     if (!pdfPath || !fs.existsSync(pdfPath)) {
       const dispatchResult = await db.query('SELECT * FROM outward_dispatches WHERE id = $1', [id]);
       const itemsResult = await db.query('SELECT * FROM outward_dispatch_items WHERE dispatch_id = $1 ORDER BY id', [id]);
-      const dispatch = { ...dispatchResult.rows[0], items: itemsResult.rows };
+      const ewayResult = await db.query('SELECT * FROM outward_eway_bills WHERE dispatch_id = $1', [id]);
+      const dispatch = { ...dispatchResult.rows[0], items: itemsResult.rows, eway: ewayResult.rows[0] || null };
       const generated = await generatePdfFile(dispatch);
       pdfPath = generated.filePath;
       await db.query('UPDATE outward_dispatches SET pdf_path = $1 WHERE id = $2', [pdfPath, id]);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiX, FiSave, FiTruck, FiDownload, FiPrinter, FiInfo, FiMapPin } from 'react-icons/fi';
+import { FiX, FiSave, FiTruck, FiDownload, FiPrinter, FiInfo, FiMapPin, FiUploadCloud } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { getEwayBill, saveEwayBill, downloadEwayBillPdf, printEwayBillPdf } from '../utils/ewayBillApi';
+import { getEwayBill, saveEwayBill, uploadEwayBillPdf, downloadEwayBillPdf, printEwayBillPdf } from '../utils/ewayBillApi';
 import { lookupStateFromVehicle, getSupplyType, calcValidUntil } from '../utils/vehicleStateLookup';
 
 const REASONS = [
@@ -56,6 +56,9 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
     const [saved, setSaved] = useState(false);
     const [downloading, setDownloading] = useState(false);
     const [printing, setPrinting] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [uploadingPdf, setUploadingPdf] = useState(false);
+    const [confirmedGenerated, setConfirmedGenerated] = useState(false);
 
     const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -154,6 +157,23 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
         }
     };
 
+    const handleUploadPdf = async () => {
+        if (!selectedFile) {
+            toast.error('Please choose an official E-Way Bill PDF to upload.');
+            return;
+        }
+        setUploadingPdf(true);
+        try {
+            await uploadEwayBillPdf(dispatch.id, selectedFile);
+            toast.success('E-Way Bill PDF uploaded.');
+            setSelectedFile(null);
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to upload E-Way Bill PDF.');
+        } finally {
+            setUploadingPdf(false);
+        }
+    };
+
     const handleDownload = async () => {
         setDownloading(true);
         try {
@@ -208,10 +228,21 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
                     <div className="px-6 py-5 space-y-5 overflow-y-auto">
                         <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl">
                             <FiInfo className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                            <p className="text-xs text-amber-200/90">
-                                Generate the actual E-Way Bill on the government portal (ewaybillgst.gov.in) first, then record its details here.
-                                This creates an internal copy for your records; it does not file anything with the government.
-                            </p>
+                            <div className="space-y-2">
+                                <p className="text-xs text-amber-200/90">
+                                    {dispatch.eway_required
+                                        ? 'Generate the actual E-Way Bill on the government portal before dispatching the goods.'
+                                        : 'This dispatch does not currently require an E-Way Bill.'}
+                                </p>
+                                <a
+                                    href={dispatch.eway_portal_url || 'https://ewaybillgst.gov.in/'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-brand-400 hover:text-brand-300"
+                                >
+                                    Open official portal <FiTruck className="w-3 h-3" />
+                                </a>
+                            </div>
                         </div>
 
                         {/* Header fields */}
@@ -223,6 +254,30 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
                             <div>
                                 <label className={labelCls}>E-Way Bill Date</label>
                                 <input type="date" value={form.ewayBillDate} onChange={(e) => update('ewayBillDate', e.target.value)} className={inputCls} />
+                            </div>
+                        </div>
+
+                        <div className="p-3 border border-surface-700/60 rounded-xl bg-surface-800/40">
+                            <label className={labelCls}>Official E-Way Bill PDF</label>
+                            <input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                className="block w-full text-sm text-surface-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-600 file:text-white hover:file:bg-brand-500"
+                            />
+                            <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
+                                <button
+                                    onClick={handleUploadPdf}
+                                    disabled={uploadingPdf || !selectedFile}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-white bg-brand-600 hover:bg-brand-500 rounded-lg transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    {uploadingPdf ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiUploadCloud className="w-4 h-4" />}
+                                    {uploadingPdf ? 'Uploading...' : 'Upload PDF'}
+                                </button>
+                                <label className="flex items-center gap-2 text-xs text-surface-300 cursor-pointer">
+                                    <input type="checkbox" checked={confirmedGenerated} onChange={(e) => setConfirmedGenerated(e.target.checked)} className="rounded border-surface-600 bg-surface-800 text-brand-500 focus:ring-brand-500" />
+                                    Confirm E-Way Bill Generated
+                                </label>
                             </div>
                         </div>
 

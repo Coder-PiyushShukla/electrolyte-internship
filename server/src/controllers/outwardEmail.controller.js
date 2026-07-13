@@ -150,7 +150,15 @@ exports.sendOutwardEmail = async (req, res) => {
     const dispatchResult = await db.query('SELECT * FROM outward_dispatches WHERE id = $1', [dispatchId]);
     if (dispatchResult.rows.length === 0) return res.status(404).json({ error: 'Dispatch not found.' });
     const itemsResult = await db.query('SELECT * FROM outward_dispatch_items WHERE dispatch_id = $1 ORDER BY id', [dispatchId]);
-    const dispatch = { ...dispatchResult.rows[0], items: itemsResult.rows };
+    const ewayResult = await db.query('SELECT * FROM outward_eway_bills WHERE dispatch_id = $1', [dispatchId]);
+    const eway = ewayResult.rows[0] || null;
+    const dispatch = { ...dispatchResult.rows[0], items: itemsResult.rows, eway };
+
+    if (dispatch.eway_required && (!eway?.eway_bill_no || !eway?.eway_bill_date || !eway?.eway_pdf_path || !fs.existsSync(eway.eway_pdf_path))) {
+      return res.status(400).json({
+        error: 'Dispatch Status: E-WAY BILL PENDING. Upload the E-Way Bill PDF and save the E-Way Bill number before sending.',
+      });
+    }
 
     // Ensure the PDF exists (generate on the fly if needed)
     let pdfPath = dispatch.pdf_path;
@@ -164,6 +172,13 @@ exports.sendOutwardEmail = async (req, res) => {
     const recipient = to.trim();
     const html = buildSummaryHtml(dispatch);
     const pdfFilename = `${dispatch.dc_no.replace(/\//g, '-')}.pdf`;
+    const attachments = [{ filename: pdfFilename, path: pdfPath }];
+    if (eway?.eway_pdf_path && fs.existsSync(eway.eway_pdf_path)) {
+      attachments.push({
+        filename: eway.eway_pdf_original_name || `EWAY-${dispatch.dc_no.replace(/\//g, '-')}.pdf`,
+        path: eway.eway_pdf_path,
+      });
+    }
     const subject = `Outward PCB Delivery Challan - ${dispatch.dc_no}`;
     const fromAddress = process.env.GMAIL_USER || process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
 
@@ -176,7 +191,7 @@ exports.sendOutwardEmail = async (req, res) => {
           to: to.trim(),
           subject,
           html,
-          attachments: [{ filename: pdfFilename, path: pdfPath }],
+          attachments,
         });
         await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'Gmail API' });
         return res.json({ message: 'Email successfully sent via Gmail API.' });
@@ -196,7 +211,7 @@ exports.sendOutwardEmail = async (req, res) => {
           from: resendFrom,
           subject,
           html,
-          attachments: [{ filename: pdfFilename, path: pdfPath }],
+          attachments,
         });
         await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'Resend' });
         return res.json({ message: 'Email successfully sent via Resend.' });
@@ -220,9 +235,7 @@ exports.sendOutwardEmail = async (req, res) => {
       to: to.trim(),
       subject,
       html,
-      attachments: [
-        { filename: pdfFilename, path: pdfPath },
-      ],
+      attachments,
     });
 
     await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'SMTP' });

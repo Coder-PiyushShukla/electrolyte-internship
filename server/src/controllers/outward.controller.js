@@ -4,6 +4,7 @@ const { getFinancialYear } = require('../utils/financialYear');
 const { getCompany, getCustomer, getAllCustomers, addCustomer } = require('../config/companyData');
 const { getItemsForBrand, lookupDescription } = require('../config/productData');
 const { createNotification, TYPES } = require('../services/notificationService');
+const { evaluateEwayRequirement } = require('../utils/ewayRules');
 
 // Ensure outward tables exist (safety net if migration wasn't run manually).
 async function ensureTables() {
@@ -39,10 +40,22 @@ async function ensureTables() {
       total_qty         INTEGER      NOT NULL DEFAULT 0,
       total_amount      NUMERIC(12, 2) NOT NULL DEFAULT 0,
       pdf_path          TEXT,
+      eway_required     BOOLEAN      NOT NULL DEFAULT FALSE,
+      eway_status       VARCHAR(30)  NOT NULL DEFAULT 'NOT_REQUIRED',
+      eway_movement_type VARCHAR(20),
+      eway_threshold_amount NUMERIC(12, 2),
+      eway_portal_url   TEXT,
+      eway_reason       TEXT,
       created_by        VARCHAR(100),
       created_at        TIMESTAMPTZ  DEFAULT NOW()
     )
   `);
+  await db.query(`ALTER TABLE outward_dispatches ADD COLUMN IF NOT EXISTS eway_required BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.query(`ALTER TABLE outward_dispatches ADD COLUMN IF NOT EXISTS eway_status VARCHAR(30) NOT NULL DEFAULT 'NOT_REQUIRED'`);
+  await db.query(`ALTER TABLE outward_dispatches ADD COLUMN IF NOT EXISTS eway_movement_type VARCHAR(20)`);
+  await db.query(`ALTER TABLE outward_dispatches ADD COLUMN IF NOT EXISTS eway_threshold_amount NUMERIC(12, 2)`);
+  await db.query(`ALTER TABLE outward_dispatches ADD COLUMN IF NOT EXISTS eway_portal_url TEXT`);
+  await db.query(`ALTER TABLE outward_dispatches ADD COLUMN IF NOT EXISTS eway_reason TEXT`);
   await db.query(`
     CREATE TABLE IF NOT EXISTS outward_dispatch_items (
       id              SERIAL PRIMARY KEY,
@@ -307,17 +320,25 @@ exports.createDispatch = async (req, res) => {
         totalAmount += qty * rate;
       }
 
+      const ewayInfo = await evaluateEwayRequirement({
+        supplierGstin: getCompany().gstin,
+        customerGstin: gstin,
+        totalAmount,
+      });
+
       const dispatchResult = await client.query(
         `INSERT INTO outward_dispatches
           (dc_no, lot_no, financial_year, brand_name, company_name, company_address,
            phone_no, gstin, vehicle_no, courier_partner, challan_date, remarks,
-           total_qty, total_amount, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+           total_qty, total_amount, eway_required, eway_status, eway_movement_type,
+           eway_threshold_amount, eway_portal_url, eway_reason, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
          RETURNING *`,
         [
           dcNo, lotNo, fy, brand, companyName, companyAddress,
           phoneNo, gstin, vehicleNo, courierPartner, challanDate, remarks || null,
-          totalQty, totalAmount, req.user?.username || null,
+          totalQty, totalAmount, ewayInfo.required, ewayInfo.required ? 'PENDING' : 'NOT_REQUIRED',
+          ewayInfo.movementType, ewayInfo.thresholdAmount, ewayInfo.portalUrl, ewayInfo.reason, req.user?.username || null,
         ]
       );
       const dispatch = dispatchResult.rows[0];

@@ -56,6 +56,16 @@ export async function generateDocument(dispatchId) {
     return data;
 }
 
+export async function previewDispatchPdf(payload) {
+    const response = await api.post('/outward/preview-document', payload, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const previewWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!previewWindow) {
+        window.location.href = url;
+    }
+    setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+}
+
 export async function downloadDispatchPdf(dispatchId, fileName) {
     const response = await api.get(`/outward/dispatches/${dispatchId}/download`, { responseType: 'blob' });
     const url = window.URL.createObjectURL(new Blob([response.data]));

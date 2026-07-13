@@ -11,6 +11,15 @@ export async function saveEwayBill(dispatchId, payload) {
     return data.data;
 }
 
+export async function uploadEwayBillPdf(dispatchId, file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post(`/outward/dispatches/${dispatchId}/eway/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data.data;
+}
+
 export async function downloadEwayBillPdf(dispatchId, fileName) {
     const response = await api.get(`/outward/dispatches/${dispatchId}/eway/download`, { responseType: 'blob' });
     const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));

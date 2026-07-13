@@ -73,6 +73,8 @@ async function ensureTable() {
       transporter_name     VARCHAR(255),
       transport_mode       VARCHAR(20),
       vehicle_no           VARCHAR(20),
+      eway_pdf_path        TEXT,
+      eway_pdf_original_name VARCHAR(255),
       from_state           VARCHAR(100),
       entered_date         DATE,
       entered_by           VARCHAR(100),
@@ -80,6 +82,8 @@ async function ensureTable() {
       updated_at           TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await db.query(`ALTER TABLE outward_eway_bills ADD COLUMN IF NOT EXISTS eway_pdf_path TEXT`);
+  await db.query(`ALTER TABLE outward_eway_bills ADD COLUMN IF NOT EXISTS eway_pdf_original_name VARCHAR(255)`);
 }
 
 // GET /api/outward/dispatches/:id/eway - fetch saved e-way bill details (or null)
@@ -154,10 +158,46 @@ exports.saveEwayBill = async (req, res) => {
       ]
     );
 
+    await db.query(
+      `UPDATE outward_dispatches
+       SET eway_status = CASE WHEN eway_required THEN 'CONFIRMED' ELSE 'NOT_REQUIRED' END,
+           pdf_path = NULL
+       WHERE id = $1`,
+      [id]
+    );
+
     res.status(201).json({ message: 'E-Way Bill details saved.', data: result.rows[0] });
   } catch (err) {
     console.error('Save e-way bill error:', err);
     res.status(500).json({ error: `Failed to save e-way bill details: ${err.message}` });
+  }
+};
+
+// POST /api/outward/dispatches/:id/eway/upload
+exports.uploadEwayBillPdf = async (req, res) => {
+  try {
+    await ensureTable();
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ error: 'Please upload an E-Way Bill PDF.' });
+
+    const dispatchCheck = await db.query('SELECT id FROM outward_dispatches WHERE id = $1', [id]);
+    if (dispatchCheck.rows.length === 0) return res.status(404).json({ error: 'Dispatch not found.' });
+
+    const result = await db.query(
+      `INSERT INTO outward_eway_bills (dispatch_id, eway_pdf_path, eway_pdf_original_name, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (dispatch_id) DO UPDATE SET
+         eway_pdf_path = EXCLUDED.eway_pdf_path,
+         eway_pdf_original_name = EXCLUDED.eway_pdf_original_name,
+         updated_at = NOW()
+       RETURNING *`,
+      [id, req.file.path, req.file.originalname]
+    );
+
+    res.status(201).json({ message: 'E-Way Bill PDF uploaded.', data: result.rows[0] });
+  } catch (err) {
+    console.error('Upload e-way bill PDF error:', err);
+    res.status(500).json({ error: `Failed to upload e-way bill PDF: ${err.message}` });
   }
 };
 

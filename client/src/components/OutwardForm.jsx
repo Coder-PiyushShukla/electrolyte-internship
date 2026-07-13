@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     FiPlus, FiTrash2, FiMail, FiSave, FiChevronDown,
-    FiCheck, FiAlertCircle, FiHash, FiDownload, FiTruck, FiPackage,
+    FiCheck, FiAlertCircle, FiHash, FiDownload, FiTruck, FiPackage, FiEye,
+    FiClock, FiSearch, FiX,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import {
     getCustomers, getProducts, getCompanyInfo, peekNextDc, peekNextOutwardLot,
-    checkInventory, createDispatch, generateDocument, downloadDispatchPdf, sendOutwardEmail,
+    checkInventory, createDispatch, generateDocument, previewDispatchPdf, downloadDispatchPdf, sendOutwardEmail,
 } from '../utils/outwardApi';
 import EwayBillModal from './EwayBillModal';
 import ItemCodeCombobox from './ItemCodeCombobox';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'pcb_outward_history';
 
 function emptyItemRow() {
     return {
@@ -19,6 +22,75 @@ function emptyItemRow() {
         itemCode: '', description: '', status: 'OK', hsnCode: '', unit: 'Nos',
         quantity: '', rate: '', remaining: null,
     };
+}
+
+function loadHistory() {
+    try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    } catch {
+        return [];
+    }
+}
+
+function saveHistory(history) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+function HistoryModal({ onClose, onLoad, history }) {
+    const [search, setSearch] = useState('');
+
+    const filtered = history.filter((entry) => {
+        const needle = search.toLowerCase();
+        return [entry.dcNo, entry.brand, entry.companyName, entry.challanDate].some((value) => String(value || '').toLowerCase().includes(needle));
+    });
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="animate-scale-in relative bg-surface-900 border border-surface-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+                <div className="flex items-center justify-between p-5 border-b border-surface-800">
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <FiClock className="w-5 h-5 text-brand-400" /> Outward Challan History
+                    </h2>
+                    <button onClick={onClose} className="p-2 text-surface-400 hover:text-white hover:bg-surface-800 rounded-lg transition-all cursor-pointer">
+                        <FiX className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="p-4 border-b border-surface-800">
+                    <div className="relative">
+                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" />
+                        <input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by challan no., customer, or date..."
+                            className="w-full pl-9 pr-4 py-2.5 bg-surface-800/60 border border-surface-700 text-white rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-surface-500"
+                        />
+                    </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    {filtered.length === 0 ? (
+                        <p className="text-center text-surface-500 py-8 text-sm">No saved challans found.</p>
+                    ) : (
+                        filtered.map((entry) => (
+                            <div key={entry.id} className="flex items-center justify-between p-3 bg-surface-800/50 border border-surface-700 rounded-xl hover:border-brand-500/40 transition-all">
+                                <div>
+                                    <p className="text-sm font-semibold text-white">{entry.dcNo || 'Untitled challan'}</p>
+                                    <p className="text-xs text-surface-400">{entry.brand} • {entry.challanDate} • Lot {entry.lotNo ?? '-'} • {entry.rows?.length || 0} item(s)</p>
+                                    <p className="text-xs text-surface-500">{entry.companyName || entry.brand}</p>
+                                </div>
+                                <button
+                                    onClick={() => { onLoad(entry); onClose(); }}
+                                    className="text-xs px-3 py-1.5 bg-brand-600/20 text-brand-400 border border-brand-500/30 rounded-lg hover:bg-brand-500/30 transition-all cursor-pointer"
+                                >
+                                    Load
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -41,7 +113,11 @@ export default function OutwardForm({ user }) {
     const [rows, setRows] = useState([emptyItemRow()]);
     const [saving, setSaving] = useState(false);
     const [savedDispatch, setSavedDispatch] = useState(null); // dispatch record once saved
+    const [showHistory, setShowHistory] = useState(false);
+    const [historyEntries, setHistoryEntries] = useState(() => loadHistory());
+    const [restoringHistory, setRestoringHistory] = useState(false);
     const [generatingPdf, setGeneratingPdf] = useState(false);
+    const [previewingPdf, setPreviewingPdf] = useState(false);
     const [emailTo, setEmailTo] = useState('');
     const [showEmailInput, setShowEmailInput] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
@@ -76,12 +152,17 @@ export default function OutwardForm({ user }) {
         peekNextDc().then((dc) => { if (!cancelled) setDcNo(dc); }).catch(() => { });
         peekNextOutwardLot(brand).then((lot) => { if (!cancelled) setLotNo(lot); }).catch(() => { });
 
+        if (restoringHistory) {
+            setRestoringHistory(false);
+            return;
+        }
+
         // Reset rows + saved state when switching customer, since item codes differ
         setRows([emptyItemRow()]);
         setSavedDispatch(null);
 
         return () => { cancelled = true; };
-    }, [brand]);
+    }, [brand, restoringHistory]);
 
     // ── Row operations ──
 
@@ -186,12 +267,107 @@ export default function OutwardForm({ user }) {
             setSavedDispatch(dispatch);
             setDcNo(dispatch.dc_no);
             setLotNo(dispatch.lot_no);
+
+            const historyPayload = {
+                id: Date.now(),
+                brand,
+                dcNo: dispatch.dc_no,
+                lotNo: dispatch.lot_no,
+                challanDate,
+                vehicleNo,
+                courierPartner,
+                companyName: customerInfo?.companyName || '',
+                companyAddress: customerInfo?.address || '',
+                phoneNo: customerInfo?.phone || '',
+                gstin: customerInfo?.gstin || '',
+                remarks,
+                rows: validRows.map((r) => ({
+                    itemCode: r.itemCode,
+                    description: r.description,
+                    status: r.status,
+                    hsnCode: r.hsnCode,
+                    unit: r.unit,
+                    quantity: r.quantity,
+                    rate: r.rate,
+                })),
+                savedAt: new Date().toISOString(),
+            };
+            const updatedHistory = [historyPayload, ...historyEntries.filter((entry) => entry.dcNo !== historyPayload.dcNo)].slice(0, 30);
+            saveHistory(updatedHistory);
+            setHistoryEntries(updatedHistory);
+
             toast.success(`Dispatch saved! (${dispatch.dc_no})`);
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to save dispatch.');
         } finally {
             setSaving(false);
         }
+    };
+
+    // ── Preview PDF before save / send ──
+
+    const handlePreviewReport = async () => {
+        if (!brand || !challanDate || rows.filter((r) => r.itemCode && r.quantity !== '').length === 0) {
+            toast.error('Please fill in the dispatch details and at least one item row before previewing the report.');
+            return;
+        }
+
+        setPreviewingPdf(true);
+        try {
+            await previewDispatchPdf({
+                brand,
+                companyName: customerInfo?.companyName,
+                companyAddress: customerInfo?.address,
+                phoneNo: customerInfo?.phone,
+                gstin: customerInfo?.gstin,
+                vehicleNo,
+                courierPartner,
+                challanDate,
+                remarks,
+                items: rows.filter((r) => r.itemCode && r.quantity !== '').map((r) => ({
+                    itemCode: r.itemCode,
+                    description: r.description,
+                    status: r.status,
+                    hsnCode: r.hsnCode,
+                    unit: r.unit,
+                    quantity: r.quantity,
+                    rate: r.rate,
+                })),
+                dcNo: dcNo?.nextDcNo || dcNo || 'PREVIEW',
+                lotNo: lotNo?.nextLotNo || lotNo || '-',
+            });
+            toast.success('Report preview opened.');
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to preview report.');
+        } finally {
+            setPreviewingPdf(false);
+        }
+    };
+
+    const handleLoadHistory = (entry) => {
+        setRestoringHistory(true);
+        setBrand(entry.brand || '');
+        setDcNo(entry.dcNo || null);
+        setLotNo(entry.lotNo || null);
+        setChallanDate(entry.challanDate || new Date().toISOString().split('T')[0]);
+        setVehicleNo(entry.vehicleNo || '');
+        setCourierPartner(entry.courierPartner || '');
+        setRemarks(entry.remarks || '');
+        const restoredRows = (entry.rows || []).length > 0
+            ? (entry.rows || []).map((row, index) => ({
+                id: Date.now() + index + Math.random(),
+                itemCode: row.itemCode || '',
+                description: row.description || '',
+                status: row.status || 'OK',
+                hsnCode: row.hsnCode || '',
+                unit: row.unit || 'Nos',
+                quantity: row.quantity ?? '',
+                rate: row.rate ?? '',
+                remaining: null,
+            }))
+            : [emptyItemRow()];
+        setRows(restoredRows);
+        setCustomerInfo(customers.find((c) => c.brand === entry.brand) || null);
     };
 
     // ── Generate + Download PDF ──
@@ -233,6 +409,13 @@ export default function OutwardForm({ user }) {
 
     return (
         <>
+            {showHistory && (
+                <HistoryModal
+                    onClose={() => setShowHistory(false)}
+                    onLoad={handleLoadHistory}
+                    history={historyEntries}
+                />
+            )}
             {showEwayModal && savedDispatch && (
                 <EwayBillModal
                     dispatch={savedDispatch}
@@ -256,6 +439,13 @@ export default function OutwardForm({ user }) {
                         <p className="text-xs text-surface-500">Generate delivery challan for repaired PCBs</p>
                     </div>
                 </div>
+                <button
+                    onClick={() => setShowHistory(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-surface-300 bg-surface-800/60 border border-surface-700/50 rounded-lg hover:bg-surface-700 hover:text-white transition-all cursor-pointer"
+                >
+                    <FiClock className="w-3.5 h-3.5" />
+                    History
+                </button>
             </div>
 
             <div className="px-6 pb-6 pt-2 space-y-5">
@@ -486,22 +676,38 @@ export default function OutwardForm({ user }) {
                     Add item row
                 </button>
 
-                {/* E-Way Bill notice - activates once dispatch value exceeds ₹50,000 */}
-                {totalAmount > 50000 && (
-                    <div className="flex flex-wrap items-center gap-3 p-4 bg-red-500/10 border border-red-500/25 rounded-xl">
-                        <FiAlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                        <p className="text-xs text-red-200/90 flex-1">
-                            This dispatch is valued at ₹{totalAmount.toLocaleString()}, above the ₹50,000 threshold for a mandatory E-Way Bill (interstate transport, Sec. 68 CGST Act).
-                        </p>
+                {/* E-Way Bill status notice */}
+                {savedDispatch && (
+                    <div className={`flex flex-wrap items-start justify-between gap-3 p-4 rounded-xl border ${savedDispatch.eway_required ? 'bg-red-500/10 border-red-500/25' : 'bg-emerald-500/10 border-emerald-500/25'}`}>
+                        <div className="flex items-start gap-2.5">
+                            <FiAlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${savedDispatch.eway_required ? 'text-red-400' : 'text-emerald-400'}`} />
+                            <div>
+                                <p className={`text-xs font-semibold uppercase tracking-wide ${savedDispatch.eway_required ? 'text-red-200' : 'text-emerald-200'}`}>
+                                    E-Way Bill {savedDispatch.eway_required ? 'REQUIRED' : 'NOT REQUIRED'}
+                                </p>
+                                <p className="text-xs text-surface-300 mt-1">
+                                    {savedDispatch.eway_required
+                                        ? 'Generate an E-Way Bill before dispatching the goods.'
+                                        : (savedDispatch.eway_reason || 'Consignment value below applicable threshold.')}
+                                </p>
+                                {savedDispatch.eway_required && savedDispatch.eway_portal_url && (
+                                    <a
+                                        href={savedDispatch.eway_portal_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-brand-400 hover:text-brand-300"
+                                    >
+                                        Open official portal <FiTruck className="w-3 h-3" />
+                                    </a>
+                                )}
+                            </div>
+                        </div>
                         <button
-                            onClick={() => {
-                                if (!savedDispatch) { toast.error('Please save the dispatch first, then fill in the E-Way Bill details.'); return; }
-                                setShowEwayModal(true);
-                            }}
-                            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-all cursor-pointer whitespace-nowrap"
+                            onClick={() => setShowEwayModal(true)}
+                            className={`flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${savedDispatch.eway_required ? 'text-white bg-red-600 hover:bg-red-500' : 'text-surface-200 bg-surface-800/80 border border-surface-700 hover:bg-surface-700'}`}
                         >
                             <FiTruck className="w-3.5 h-3.5" />
-                            Fill E-Way Bill Details
+                            {savedDispatch.eway_required ? 'Fill E-Way Bill Details' : 'View E-Way Bill Details'}
                         </button>
                     </div>
                 )}
@@ -520,6 +726,20 @@ export default function OutwardForm({ user }) {
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-3 pt-1">
+                    {/* Preview Report */}
+                    <button
+                        onClick={handlePreviewReport}
+                        disabled={previewingPdf}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-surface-200 bg-surface-800/80 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {previewingPdf ? (
+                            <div className="w-4 h-4 border-2 border-surface-500 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <FiEye className="w-4 h-4" />
+                        )}
+                        {previewingPdf ? 'Preparing...' : 'View Report'}
+                    </button>
+
                     {/* Save Dispatch */}
                     <button
                         onClick={handleSaveDispatch}
