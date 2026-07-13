@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     FiPlus, FiTrash2, FiMail, FiSave, FiChevronDown,
     FiCheck, FiAlertCircle, FiHash, FiDownload, FiTruck, FiPackage, FiEye,
@@ -115,7 +115,8 @@ export default function OutwardForm({ user }) {
     const [savedDispatch, setSavedDispatch] = useState(null); // dispatch record once saved
     const [showHistory, setShowHistory] = useState(false);
     const [historyEntries, setHistoryEntries] = useState(() => loadHistory());
-    const [restoringHistory, setRestoringHistory] = useState(false);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+    const restoringHistoryRef = useRef(false);
     const [generatingPdf, setGeneratingPdf] = useState(false);
     const [previewingPdf, setPreviewingPdf] = useState(false);
     const [emailTo, setEmailTo] = useState('');
@@ -152,8 +153,13 @@ export default function OutwardForm({ user }) {
         peekNextDc().then((dc) => { if (!cancelled) setDcNo(dc); }).catch(() => { });
         peekNextOutwardLot(brand).then((lot) => { if (!cancelled) setLotNo(lot); }).catch(() => { });
 
-        if (restoringHistory) {
-            setRestoringHistory(false);
+        if (loadingHistory) {
+            setLoadingHistory(false);
+            return;
+        }
+
+        if (restoringHistoryRef.current) {
+            restoringHistoryRef.current = false;
             return;
         }
 
@@ -162,7 +168,7 @@ export default function OutwardForm({ user }) {
         setSavedDispatch(null);
 
         return () => { cancelled = true; };
-    }, [brand, restoringHistory]);
+    }, [brand, loadingHistory]);
 
     // ── Row operations ──
 
@@ -345,7 +351,8 @@ export default function OutwardForm({ user }) {
     };
 
     const handleLoadHistory = (entry) => {
-        setRestoringHistory(true);
+        setLoadingHistory(true);
+        restoringHistoryRef.current = true;
         setBrand(entry.brand || '');
         setDcNo(entry.dcNo || null);
         setLotNo(entry.lotNo || null);
@@ -353,20 +360,18 @@ export default function OutwardForm({ user }) {
         setVehicleNo(entry.vehicleNo || '');
         setCourierPartner(entry.courierPartner || '');
         setRemarks(entry.remarks || '');
-        const restoredRows = (entry.rows || []).length > 0
-            ? (entry.rows || []).map((row, index) => ({
-                id: Date.now() + index + Math.random(),
-                itemCode: row.itemCode || '',
-                description: row.description || '',
-                status: row.status || 'OK',
-                hsnCode: row.hsnCode || '',
-                unit: row.unit || 'Nos',
-                quantity: row.quantity ?? '',
-                rate: row.rate ?? '',
-                remaining: null,
-            }))
-            : [emptyItemRow()];
-        setRows(restoredRows);
+        setRows((entry.rows || []).map((row, index) => ({
+            id: Date.now() + index + Math.random(),
+            itemCode: row.itemCode || '',
+            description: row.description || '',
+            status: row.status || 'OK',
+            hsnCode: row.hsnCode || '',
+            unit: row.unit || 'Nos',
+            quantity: row.quantity ?? '',
+            rate: row.rate ?? '',
+            remaining: null,
+        })));
+        setSavedDispatch(null);
         setCustomerInfo(customers.find((c) => c.brand === entry.brand) || null);
     };
 
