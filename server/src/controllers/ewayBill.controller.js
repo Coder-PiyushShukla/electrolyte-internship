@@ -228,7 +228,7 @@ function buildDocDefinition(eway, dispatch) {
       note: { fontSize: 8, italics: true, color: '#94a3b8' },
     },
     content: [
-      { text: 'e-Way Bill', style: 'title', margin: [0, 0, 0, 4] },
+      { text: 'E-Way bill report summary', style: 'title', margin: [0, 0, 0, 4] },
       { text: `Internal record: generated on ${formatDateTime(new Date())} by ${safe(eway.entered_by)}`, style: 'note', margin: [0, 0, 0, 14] },
 
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 535, y2: 0, lineWidth: 1, lineColor: '#cbd5e1' }], margin: [0, 0, 0, 12] },

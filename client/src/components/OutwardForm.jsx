@@ -9,6 +9,7 @@ import {
     getCustomers, getProducts, getCompanyInfo, peekNextDc, peekNextOutwardLot,
     checkInventory, createDispatch, generateDocument, previewDispatchPdf, downloadDispatchPdf, sendOutwardEmail,
 } from '../utils/outwardApi';
+import { getEwayBill } from '../utils/ewayBillApi';
 import EwayBillModal from './EwayBillModal';
 import ItemCodeCombobox from './ItemCodeCombobox';
 
@@ -122,6 +123,7 @@ export default function OutwardForm({ user }) {
     const [emailTo, setEmailTo] = useState('');
     const [showEmailInput, setShowEmailInput] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
+    const [ewayDetails, setEwayDetails] = useState(null);
 
     // ── Load customer list on mount ──
     useEffect(() => {
@@ -169,6 +171,24 @@ export default function OutwardForm({ user }) {
 
         return () => { cancelled = true; };
     }, [brand, loadingHistory]);
+
+    useEffect(() => {
+        if (!savedDispatch?.id) {
+            setEwayDetails(null);
+            return;
+        }
+        let cancelled = false;
+        getEwayBill(savedDispatch.id)
+            .then((data) => {
+                if (!cancelled) setEwayDetails(data);
+            })
+            .catch(() => {
+                if (!cancelled) setEwayDetails(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [savedDispatch?.id, showEwayModal]);
 
     // ── Row operations ──
 
@@ -393,9 +413,15 @@ export default function OutwardForm({ user }) {
 
     // ── Send Email (PDF attachment + HTML summary) ──
 
+    const canSendEmail = Boolean(savedDispatch && (!savedDispatch.eway_required || (ewayDetails?.eway_bill_no && ewayDetails?.eway_bill_date && ewayDetails?.eway_pdf_path)));
+
     const handleSendEmail = async () => {
         if (!savedDispatch) { toast.error('Please save the dispatch first.'); return; }
         if (!emailTo.trim()) { toast.error('Please enter a recipient email address.'); return; }
+        if (savedDispatch.eway_required && !canSendEmail) {
+            toast.error('Please save the E-Way Bill details and upload the official E-Way Bill PDF before sending email.');
+            return;
+        }
 
         setSendingEmail(true);
         try {
@@ -776,7 +802,8 @@ export default function OutwardForm({ user }) {
                     {/* Send Email */}
                     <button
                         onClick={() => setShowEmailInput((v) => !v)}
-                        disabled={!savedDispatch}
+                        disabled={!savedDispatch || !canSendEmail}
+                        title={!savedDispatch ? 'Save the dispatch first' : savedDispatch.eway_required && !canSendEmail ? 'Please complete E-Way Bill details before sending email' : ''}
                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-surface-200 bg-surface-800/80 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <FiMail className="w-4 h-4" />

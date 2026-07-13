@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { FiX, FiSave, FiTruck, FiDownload, FiPrinter, FiInfo, FiMapPin, FiUploadCloud } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiX, FiSave, FiTruck, FiInfo, FiMapPin, FiUploadCloud } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { getEwayBill, saveEwayBill, uploadEwayBillPdf, downloadEwayBillPdf, printEwayBillPdf } from '../utils/ewayBillApi';
-import { lookupStateFromVehicle, getSupplyType, calcValidUntil } from '../utils/vehicleStateLookup';
+import { getEwayBill, saveEwayBill, uploadEwayBillPdf } from '../utils/ewayBillApi';
+import { getSupplyType } from '../utils/vehicleStateLookup';
 
 const REASONS = [
     'Outward Supply (Sales)',
@@ -35,30 +35,14 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
     const [form, setForm] = useState({
         ewayBillNo: '',
         ewayBillDate: toDateInput(dispatch.challan_date) || toDateInput(new Date()),
-        generatedByGstin: company?.gstin || '',
-        generatedByName: company?.companyName || '',
-        distanceKm: '',
-        validFrom: toDateTimeInput(new Date()),
-        validUntil: '',
         supplierGstin: company?.gstin || '',
-        placeOfDispatch: company?.address || '',
         recipientGstin: dispatch.gstin || '',
-        placeOfDelivery: dispatch.company_address || '',
-        reason: REASONS[0],
-        transporterName: dispatch.courier_partner || '',
-        transportMode: 'Road',
-        vehicleNo: dispatch.vehicle_no || '',
-        fromState: '',
     });
-    const [validUntilTouched, setValidUntilTouched] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
-    const [downloading, setDownloading] = useState(false);
-    const [printing, setPrinting] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploadingPdf, setUploadingPdf] = useState(false);
-    const [confirmedGenerated, setConfirmedGenerated] = useState(false);
 
     const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -68,25 +52,13 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
         getEwayBill(dispatch.id)
             .then((existing) => {
                 if (cancelled || !existing) return;
-                setForm({
+                setForm((prev) => ({
+                    ...prev,
                     ewayBillNo: existing.eway_bill_no || '',
                     ewayBillDate: toDateInput(existing.eway_bill_date) || toDateInput(new Date()),
-                    generatedByGstin: existing.generated_by_gstin || company?.gstin || '',
-                    generatedByName: existing.generated_by_name || company?.companyName || '',
-                    distanceKm: existing.distance_km || '',
-                    validFrom: toDateTimeInput(existing.valid_from) || toDateTimeInput(new Date()),
-                    validUntil: toDateTimeInput(existing.valid_until),
-                    supplierGstin: existing.supplier_gstin || company?.gstin || '',
-                    placeOfDispatch: existing.place_of_dispatch || company?.address || '',
-                    recipientGstin: existing.recipient_gstin || dispatch.gstin || '',
-                    placeOfDelivery: existing.place_of_delivery || dispatch.company_address || '',
-                    reason: existing.reason || REASONS[0],
-                    transporterName: existing.transporter_name || dispatch.courier_partner || '',
-                    transportMode: existing.transport_mode || 'Road',
-                    vehicleNo: existing.vehicle_no || dispatch.vehicle_no || '',
-                    fromState: existing.from_state || '',
-                });
-                setValidUntilTouched(true); // don't overwrite a previously saved validUntil automatically
+                    supplierGstin: existing.supplier_gstin || company?.gstin || prev.supplierGstin,
+                    recipientGstin: existing.recipient_gstin || dispatch.gstin || prev.recipientGstin,
+                }));
                 setSaved(true);
             })
             .catch(() => { /* no existing record - that's fine, use defaults */ })
@@ -95,21 +67,7 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dispatch.id]);
 
-    // ── Auto-detect state from vehicle number as it's typed ──
-    const handleVehicleChange = (value) => {
-        update('vehicleNo', value);
-        const detected = lookupStateFromVehicle(value);
-        if (detected) update('fromState', detected.state);
-    };
-
-    // ── Auto-calculate Valid Until whenever distance or Valid From changes (unless the user has manually edited it) ──
-    useEffect(() => {
-        if (validUntilTouched) return;
-        if (!form.distanceKm) return;
-        const until = calcValidUntil(form.validFrom, form.distanceKm);
-        update('validUntil', toDateTimeInput(until));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [form.distanceKm, form.validFrom, validUntilTouched]);
+    const isRequired = Boolean(dispatch.eway_required);
 
     const supplyType = getSupplyType(form.supplierGstin, form.recipientGstin);
 
@@ -118,33 +76,17 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
             toast.error('Please enter the E-Way Bill No. (from the government E-Way Bill portal).');
             return;
         }
-        if (!form.vehicleNo.trim()) {
-            toast.error('Please enter the vehicle number.');
-            return;
-        }
 
         setSaving(true);
         try {
             await saveEwayBill(dispatch.id, {
                 ewayBillNo: form.ewayBillNo.trim(),
                 ewayBillDate: form.ewayBillDate || null,
-                generatedByGstin: form.generatedByGstin,
-                generatedByName: form.generatedByName,
-                distanceKm: form.distanceKm ? parseInt(form.distanceKm, 10) : null,
-                validFrom: form.validFrom || null,
-                validUntil: form.validUntil || null,
                 supplierGstin: form.supplierGstin,
-                placeOfDispatch: form.placeOfDispatch,
                 recipientGstin: form.recipientGstin,
-                placeOfDelivery: form.placeOfDelivery,
                 documentNo: dispatch.dc_no,
                 documentDate: toDateInput(dispatch.challan_date),
                 valueOfGoods: dispatch.total_amount,
-                reason: form.reason,
-                transporterName: form.transporterName,
-                transportMode: form.transportMode,
-                vehicleNo: form.vehicleNo.trim().toUpperCase(),
-                fromState: form.fromState,
                 enteredDate: toDateInput(new Date()),
                 enteredBy: username || 'system',
             });
@@ -174,27 +116,6 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
         }
     };
 
-    const handleDownload = async () => {
-        setDownloading(true);
-        try {
-            await downloadEwayBillPdf(dispatch.id, `EWAY-${(dispatch.dc_no || '').replace(/\//g, '-')}.pdf`);
-        } catch {
-            toast.error('Failed to download e-way bill PDF.');
-        } finally {
-            setDownloading(false);
-        }
-    };
-
-    const handlePrint = async () => {
-        setPrinting(true);
-        try {
-            await printEwayBillPdf(dispatch.id);
-        } catch {
-            toast.error('Failed to open e-way bill for printing.');
-        } finally {
-            setPrinting(false);
-        }
-    };
 
     const inputCls = 'w-full bg-surface-800/60 border border-surface-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all placeholder:text-surface-500';
     const readonlyCls = 'w-full bg-surface-800/30 border border-surface-700/50 text-surface-300 rounded-xl px-3 py-2 text-sm cursor-not-allowed';
@@ -230,174 +151,88 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
                             <FiInfo className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                             <div className="space-y-2">
                                 <p className="text-xs text-amber-200/90">
-                                    {dispatch.eway_required
+                                    {isRequired
                                         ? 'Generate the actual E-Way Bill on the government portal before dispatching the goods.'
                                         : 'This dispatch does not currently require an E-Way Bill.'}
                                 </p>
-                                <a
-                                    href={dispatch.eway_portal_url || 'https://ewaybillgst.gov.in/'}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1 text-xs font-medium text-brand-400 hover:text-brand-300"
-                                >
-                                    Open official portal <FiTruck className="w-3 h-3" />
-                                </a>
-                            </div>
-                        </div>
-
-                        {/* Header fields */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className={labelCls}>E-Way Bill No. *</label>
-                                <input value={form.ewayBillNo} onChange={(e) => update('ewayBillNo', e.target.value)} placeholder="e.g. 5652 XXXX 6583" className={inputCls} />
-                            </div>
-                            <div>
-                                <label className={labelCls}>E-Way Bill Date</label>
-                                <input type="date" value={form.ewayBillDate} onChange={(e) => update('ewayBillDate', e.target.value)} className={inputCls} />
-                            </div>
-                        </div>
-
-                        <div className="p-3 border border-surface-700/60 rounded-xl bg-surface-800/40">
-                            <label className={labelCls}>Official E-Way Bill PDF</label>
-                            <input
-                                type="file"
-                                accept="application/pdf"
-                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                className="block w-full text-sm text-surface-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-600 file:text-white hover:file:bg-brand-500"
-                            />
-                            <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
-                                <button
-                                    onClick={handleUploadPdf}
-                                    disabled={uploadingPdf || !selectedFile}
-                                    className="flex items-center gap-2 px-3 py-2 text-sm text-white bg-brand-600 hover:bg-brand-500 rounded-lg transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                    {uploadingPdf ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiUploadCloud className="w-4 h-4" />}
-                                    {uploadingPdf ? 'Uploading...' : 'Upload PDF'}
-                                </button>
-                                <label className="flex items-center gap-2 text-xs text-surface-300 cursor-pointer">
-                                    <input type="checkbox" checked={confirmedGenerated} onChange={(e) => setConfirmedGenerated(e.target.checked)} className="rounded border-surface-600 bg-surface-800 text-brand-500 focus:ring-brand-500" />
-                                    Confirm E-Way Bill Generated
-                                </label>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className={labelCls}>Approx. Distance (km)</label>
-                                <input type="number" min="0" value={form.distanceKm} onChange={(e) => update('distanceKm', e.target.value)} placeholder="e.g. 850" className={inputCls} />
-                                <p className="text-[11px] text-surface-500 mt-1">Used to auto-calculate validity (1 day per 200 km).</p>
-                            </div>
-                            <div>
-                                <label className={labelCls}>Valid From</label>
-                                <input type="datetime-local" value={form.validFrom} onChange={(e) => update('validFrom', e.target.value)} className={inputCls} />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className={labelCls}>
-                                Valid Until {form.distanceKm && !validUntilTouched && <span className="text-brand-400">(auto-calculated)</span>}
-                            </label>
-                            <input
-                                type="datetime-local"
-                                value={form.validUntil}
-                                onChange={(e) => { update('validUntil', e.target.value); setValidUntilTouched(true); }}
-                                className={inputCls}
-                            />
-                        </div>
-
-                        {/* Part A */}
-                        <div className="pt-2">
-                            <div className="bg-brand-600/90 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 mb-3">Part A</div>
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className={labelCls}>GSTIN of Supplier</label>
-                                        <input value={form.supplierGstin} onChange={(e) => update('supplierGstin', e.target.value)} className={inputCls} />
-                                    </div>
-                                    <div>
-                                        <label className={labelCls}>GSTIN of Recipient</label>
-                                        <input value={form.recipientGstin} onChange={(e) => update('recipientGstin', e.target.value)} className={inputCls} />
-                                    </div>
-                                </div>
-
-                                {supplyType && (
-                                    <div className="flex items-center gap-2 px-3 py-2 bg-surface-800/40 border border-surface-700/50 rounded-xl text-xs text-surface-300">
-                                        <FiMapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
-                                        {supplyType.supplierState} → {supplyType.recipientState}:{' '}
-                                        <span className={`font-semibold ${supplyType.isInterstate ? 'text-orange-400' : 'text-emerald-400'}`}>
-                                            {supplyType.isInterstate ? 'Interstate' : 'Intrastate'}
-                                        </span>{' '}
-                                        (tax: {supplyType.taxType})
-                                    </div>
+                                {isRequired && dispatch.eway_portal_url && (
+                                    <a
+                                        href={dispatch.eway_portal_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs font-medium text-brand-400 hover:text-brand-300"
+                                    >
+                                        Open official portal <FiTruck className="w-3 h-3" />
+                                    </a>
                                 )}
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className={labelCls}>Place of Dispatch</label>
-                                        <input value={form.placeOfDispatch} onChange={(e) => update('placeOfDispatch', e.target.value)} className={inputCls} />
-                                    </div>
-                                    <div>
-                                        <label className={labelCls}>Place of Delivery</label>
-                                        <input value={form.placeOfDelivery} onChange={(e) => update('placeOfDelivery', e.target.value)} className={inputCls} />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className={labelCls}>Document No. (auto)</label>
-                                        <div className={readonlyCls}>{dispatch.dc_no}</div>
-                                    </div>
-                                    <div>
-                                        <label className={labelCls}>Value of Goods (auto)</label>
-                                        <div className={readonlyCls}>₹{Number(dispatch.total_amount || 0).toLocaleString('en-IN')}</div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className={labelCls}>Reason for Transportation</label>
-                                        <select value={form.reason} onChange={(e) => update('reason', e.target.value)} className={selectCls}>
-                                            {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className={labelCls}>Transporter</label>
-                                        <input value={form.transporterName} onChange={(e) => update('transporterName', e.target.value)} placeholder="e.g. Delhivery Ltd" className={inputCls} />
-                                    </div>
-                                </div>
                             </div>
                         </div>
 
-                        {/* Part B */}
-                        <div className="pt-2">
-                            <div className="bg-brand-600/90 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 mb-3">Part B</div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className={labelCls}>Mode</label>
-                                    <select value={form.transportMode} onChange={(e) => update('transportMode', e.target.value)} className={selectCls}>
-                                        <option value="Road">Road</option>
-                                        <option value="Rail">Rail</option>
-                                        <option value="Air">Air</option>
-                                        <option value="Ship">Ship</option>
-                                    </select>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label className={labelCls}>GSTIN of Supplier</label>
+                                <div className={readonlyCls}>{form.supplierGstin || '-'}</div>
+                            </div>
+                            <div>
+                                <label className={labelCls}>GSTIN of Recipient</label>
+                                <div className={readonlyCls}>{form.recipientGstin || '-'}</div>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className={labelCls}>Movement Type</label>
+                                <div className={readonlyCls}>
+                                    {supplyType ? (supplyType.isInterstate ? 'Interstate' : 'Intrastate') : 'Auto-detected'}
                                 </div>
-                                <div>
-                                    <label className={labelCls}>Vehicle No. *</label>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className={labelCls}>Total Value of Goods</label>
+                                <div className={readonlyCls}>₹{Number(dispatch.total_amount || 0).toLocaleString('en-IN')}</div>
+                            </div>
+                        </div>
+
+                        {isRequired && (
+                            <>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <label className={labelCls}>E-Way Bill No. *</label>
+                                        <input
+                                            value={form.ewayBillNo}
+                                            onChange={(e) => update('ewayBillNo', e.target.value)}
+                                            placeholder="e.g. 5652 XXXX 6583"
+                                            className={inputCls}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>E-Way Bill Date</label>
+                                        <input
+                                            type="date"
+                                            value={form.ewayBillDate}
+                                            onChange={(e) => update('ewayBillDate', e.target.value)}
+                                            className={inputCls}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="p-3 border border-surface-700/60 rounded-xl bg-surface-800/40">
+                                    <label className={labelCls}>Official E-Way Bill PDF</label>
                                     <input
-                                        value={form.vehicleNo}
-                                        onChange={(e) => handleVehicleChange(e.target.value)}
-                                        placeholder="e.g. MH12AB1234"
-                                        className={`${inputCls} uppercase`}
+                                        type="file"
+                                        accept="application/pdf"
+                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                        className="block w-full text-sm text-surface-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-600 file:text-white hover:file:bg-brand-500"
                                     />
+                                    <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
+                                        <button
+                                            onClick={handleUploadPdf}
+                                            disabled={uploadingPdf || !selectedFile}
+                                            className="flex items-center gap-2 px-3 py-2 text-sm text-white bg-brand-600 hover:bg-brand-500 rounded-lg transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            {uploadingPdf ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiUploadCloud className="w-4 h-4" />}
+                                            {uploadingPdf ? 'Uploading...' : 'Upload PDF'}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="mt-4">
-                                <label className={labelCls}>
-                                    From (State) {form.fromState && <span className="text-brand-400">(auto-detected from vehicle no.)</span>}
-                                </label>
-                                <input value={form.fromState} onChange={(e) => update('fromState', e.target.value)} className={inputCls} />
-                            </div>
-                        </div>
+                            </>
+                        )}
                     </div>
                 )}
 
@@ -406,32 +241,16 @@ export default function EwayBillModal({ dispatch, company, username, onClose }) 
                     <button onClick={onClose} className="px-4 py-2.5 text-sm text-surface-300 hover:text-white transition-colors cursor-pointer">
                         Close
                     </button>
-                    <button
-                        onClick={handlePrint}
-                        disabled={!saved || printing}
-                        title={!saved ? 'Save the e-way bill details first' : ''}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-surface-200 bg-surface-800/80 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {printing ? <div className="w-4 h-4 border-2 border-surface-500 border-t-white rounded-full animate-spin" /> : <FiPrinter className="w-4 h-4" />}
-                        Print
-                    </button>
-                    <button
-                        onClick={handleDownload}
-                        disabled={!saved || downloading}
-                        title={!saved ? 'Save the e-way bill details first' : ''}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-surface-200 bg-surface-800/80 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-white transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {downloading ? <div className="w-4 h-4 border-2 border-surface-500 border-t-white rounded-full animate-spin" /> : <FiDownload className="w-4 h-4" />}
-                        Download
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-lg shadow-brand-500/20 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                        {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSave className="w-4 h-4" />}
-                        {saving ? 'Saving...' : saved ? 'Update' : 'Save'}
-                    </button>
+                    {isRequired ? (
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-lg shadow-brand-500/20 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiSave className="w-4 h-4" />}
+                            {saving ? 'Saving...' : saved ? 'Update' : 'Save'}
+                        </button>
+                    ) : null}
                 </div>
             </div>
         </div>

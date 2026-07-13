@@ -31,17 +31,3 @@ export async function downloadEwayBillPdf(dispatchId, fileName) {
     link.remove();
     window.URL.revokeObjectURL(url);
 }
-
-// Opens the generated PDF in a new tab and best-effort triggers the
-// browser's print dialog. If the browser blocks auto-print (varies by
-// browser/PDF viewer), the PDF still opens ready for the user to print manually.
-export async function printEwayBillPdf(dispatchId) {
-    const response = await api.get(`/outward/dispatches/${dispatchId}/eway/download`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-    const printWindow = window.open(url, '_blank');
-    if (printWindow) {
-        printWindow.addEventListener('load', () => {
-            try { printWindow.print(); } catch { /* best-effort only */ }
-        });
-    }
-}
