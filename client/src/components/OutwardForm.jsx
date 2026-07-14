@@ -12,6 +12,7 @@ import {
 import { getEwayBill } from '../utils/ewayBillApi';
 import EwayBillModal from './EwayBillModal';
 import ItemCodeCombobox from './ItemCodeCombobox';
+import { useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,7 @@ function HistoryModal({ onClose, onLoad, history }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function OutwardForm({ user }) {
+    const { setHasUnsavedChanges } = useUnsavedChanges();
     const [customers, setCustomers] = useState([]);
     const [brand, setBrand] = useState('');
     const [companyInfo, setCompanyInfo] = useState(null);
@@ -128,6 +130,37 @@ export default function OutwardForm({ user }) {
     const [showEmailInput, setShowEmailInput] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
     const [ewayDetails, setEwayDetails] = useState(null);
+    const [draftSnapshot, setDraftSnapshot] = useState(() => ({
+        brand: '',
+        challanDate: new Date().toISOString().split('T')[0],
+        vehicleNo: '',
+        courierPartner: '',
+        remarks: '',
+        rows: [],
+    }));
+
+    const serializeOutwardDraft = useCallback(() => ({
+        brand,
+        challanDate,
+        vehicleNo,
+        courierPartner,
+        remarks,
+        rows: rows.filter((row) => row.itemCode || row.description || row.hsnCode || row.quantity || row.rate).map((row) => ({
+            itemCode: row.itemCode || '',
+            description: row.description || '',
+            status: row.status || 'OK',
+            hsnCode: row.hsnCode || '',
+            unit: row.unit || 'Nos',
+            quantity: row.quantity ?? '',
+            rate: row.rate ?? '',
+        })),
+    }), [brand, challanDate, vehicleNo, courierPartner, remarks, rows]);
+
+    useEffect(() => {
+        const currentDraft = serializeOutwardDraft();
+        const isDirty = JSON.stringify(currentDraft) !== JSON.stringify(draftSnapshot);
+        setHasUnsavedChanges(isDirty && !savedDispatch);
+    }, [draftSnapshot, serializeOutwardDraft, savedDispatch, setHasUnsavedChanges]);
 
     // ── Load customer list on mount ──
     useEffect(() => {
@@ -327,6 +360,8 @@ export default function OutwardForm({ user }) {
             saveHistory(updatedHistory);
             setHistoryEntries(updatedHistory);
 
+            setDraftSnapshot(serializeOutwardDraft());
+            setHasUnsavedChanges(false);
             toast.success(`Dispatch saved! (${dispatch.dc_no})`);
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to save dispatch.');
@@ -376,6 +411,11 @@ export default function OutwardForm({ user }) {
     };
 
 const handleLoadHistory = async (entry) => {
+        if (JSON.stringify(serializeOutwardDraft()) !== JSON.stringify(draftSnapshot)) {
+            const confirmed = window.confirm('You have unsaved changes. Save the challan first or your work will be lost.');
+            if (!confirmed) return;
+        }
+
         try {
             await revertOutwardDispatch({ dispatchId: entry.dispatchId || null, dcNo: entry.dcNo || null });
         } catch (err) {
@@ -405,6 +445,23 @@ const handleLoadHistory = async (entry) => {
         })));
         setSavedDispatch(null);
         setCustomerInfo(customers.find((c) => c.brand === entry.brand) || null);
+        setDraftSnapshot({
+            brand: entry.brand || '',
+            challanDate: entry.challanDate || new Date().toISOString().split('T')[0],
+            vehicleNo: entry.vehicleNo || '',
+            courierPartner: entry.courierPartner || '',
+            remarks: entry.remarks || '',
+            rows: (entry.rows || []).map((row) => ({
+                itemCode: row.itemCode || '',
+                description: row.description || '',
+                status: row.status || 'OK',
+                hsnCode: row.hsnCode || '',
+                unit: row.unit || 'Nos',
+                quantity: row.quantity ?? '',
+                rate: row.rate ?? '',
+            })),
+        });
+        setHasUnsavedChanges(false);
     };
 
     // ── Generate + Download PDF ──

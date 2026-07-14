@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import {
     FiPlus, FiTrash2, FiMail, FiSave, FiClock, FiSearch,
     FiChevronDown, FiFileText, FiX, FiCheck, FiAlertTriangle,
@@ -253,6 +254,7 @@ function VerifyReportModal({ onClose, challanNo, emailTo, htmlBody }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function ChallanVerification() {
+    const { setHasUnsavedChanges } = useUnsavedChanges();
     const [brand, setBrand] = useState('Bajaj');
     const [companies, setCompanies] = useState([]);
     const [challanNo, setChallanNo] = useState('');
@@ -265,8 +267,32 @@ export default function ChallanVerification() {
     const [showEmailInput, setShowEmailInput] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
     const historyRestoreRef = useRef(false);
+    const [draftSnapshot, setDraftSnapshot] = useState(() => ({
+        brand: 'Bajaj',
+        challanNo: '',
+        challanDate: new Date().toISOString().split('T')[0],
+        rows: [],
+    }));
 
     const itemCodes = getItemCodes(brand);
+
+    const serializeInwardDraft = useCallback(() => ({
+        brand,
+        challanNo,
+        challanDate,
+        rows: rows.filter((row) => row.itemCode || row.description || row.challanQty || row.physicalQty).map((row) => ({
+            itemCode: row.itemCode || '',
+            description: row.description || '',
+            challanQty: row.challanQty || '',
+            physicalQty: row.physicalQty || '',
+        })),
+    }), [brand, challanNo, challanDate, rows]);
+
+    useEffect(() => {
+        const currentDraft = serializeInwardDraft();
+        const isDirty = JSON.stringify(currentDraft) !== JSON.stringify(draftSnapshot);
+        setHasUnsavedChanges(isDirty);
+    }, [draftSnapshot, serializeInwardDraft, setHasUnsavedChanges]);
 
     // ── Load the shared company/brand list on mount (same source as Outward page) ──
     useEffect(() => {
@@ -379,6 +405,8 @@ export default function ChallanVerification() {
             const updated = [entry, ...history.filter((h) => h.challanNo !== entry.challanNo)].slice(0, 50);
             saveHistory(updated);
 
+            setDraftSnapshot(serializeInwardDraft());
+            setHasUnsavedChanges(false);
             toast.success(`Challan saved! Lot No. ${finalLotNo}: ${validRows.length} item(s) added to inventory.`);
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to save challan / update inventory.');
@@ -388,6 +416,11 @@ export default function ChallanVerification() {
     // ── Load from History ──
 
     const handleLoad = async (h) => {
+        if (JSON.stringify(serializeInwardDraft()) !== JSON.stringify(draftSnapshot)) {
+            const confirmed = window.confirm('You have unsaved changes. Save the challan first or your work will be lost.');
+            if (!confirmed) return;
+        }
+
         try {
             await revertInwardChallan({ brand: h.brand, challanNo: h.challanNo });
         } catch (err) {
@@ -402,6 +435,18 @@ export default function ChallanVerification() {
         setChallanDate(h.challanDate);
         setLotNo(h.lotNo ?? null);
         setRows(h.rows);
+        setDraftSnapshot({
+            brand: loadedBrand,
+            challanNo: h.challanNo,
+            challanDate: h.challanDate,
+            rows: (h.rows || []).map((row) => ({
+                itemCode: row.itemCode || '',
+                description: row.description || '',
+                challanQty: row.challanQty || '',
+                physicalQty: row.physicalQty || '',
+            })),
+        });
+        setHasUnsavedChanges(false);
     };
 
     // ── Email: real server-side send (Feature 3) ──

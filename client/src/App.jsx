@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet, useBlocker } from 'react-router-dom';
+import { UnsavedChangesProvider, useUnsavedChanges } from './contexts/UnsavedChangesContext';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -12,8 +13,47 @@ import CompanyOnboardingPage from './pages/CompanyOnboardingPage';
 import NotificationsPage from './pages/NotificationsPage';
 import Navbar from './components/Navbar';
 
+function UnsavedChangesGuard() {
+  const { hasUnsavedChanges } = useUnsavedChanges();
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname);
+
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      const confirmed = window.confirm('You have unsaved changes. Save the challan first or your work will be lost.');
+      if (confirmed) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    }
+  }, [blocker]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  return null;
+}
+
+function ProtectedLayout({ user, onLogout }) {
+  return (
+    <div className="min-h-screen bg-surface-950">
+      <UnsavedChangesGuard />
+      <Navbar user={user} onLogout={onLogout} />
+      <Outlet />
+    </div>
+  );
+}
+
 function App() {
   const [user, setUser] = useState(null);
+  const { hasUnsavedChanges, setHasUnsavedChanges } = useUnsavedChanges();
 
   useEffect(() => {
     const token = localStorage.getItem('pcb_token');
@@ -33,10 +73,48 @@ function App() {
   };
 
   const handleLogout = () => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm('You have unsaved changes. Save the challan first or your work will be lost.');
+      if (!confirmed) return;
+    }
     localStorage.removeItem('pcb_token');
     localStorage.removeItem('pcb_user');
+    setHasUnsavedChanges(false);
     setUser(null);
   };
+
+  const router = useMemo(() => createBrowserRouter([
+    {
+      path: '/',
+      element: user ? <ProtectedLayout user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />,
+      children: [
+        { index: true, element: <MainPage user={user} /> },
+        { path: 'inward', element: <InwardPage user={user} /> },
+        { path: 'outward', element: <OutwardPage user={user} /> },
+        { path: 'notifications', element: <NotificationsPage user={user} /> },
+        ...(user?.role === 'admin' ? [
+          { path: 'company-onboarding', element: <CompanyOnboardingPage /> },
+          { path: 'admin', element: <AdminPage /> },
+        ] : []),
+      ],
+    },
+    {
+      path: '/login',
+      element: user ? <Navigate to="/" replace /> : <LoginPage onLogin={handleLogin} />,
+    },
+    {
+      path: '/register',
+      element: user ? <Navigate to="/" replace /> : <RegisterPage />,
+    },
+    {
+      path: '/forgot-password',
+      element: user ? <Navigate to="/" replace /> : <ForgotPasswordPage />,
+    },
+    {
+      path: '*',
+      element: <Navigate to={user ? '/' : '/login'} replace />,
+    },
+  ]), [user, handleLogin, handleLogout]);
 
   return (
     <>
@@ -60,36 +138,15 @@ function App() {
         }}
       />
 
-      <BrowserRouter>
-        {user ? (
-          <div className="min-h-screen bg-surface-950">
-            <Navbar user={user} onLogout={handleLogout} />
-            <Routes>
-              <Route path="/" element={<MainPage user={user} />} />
-              <Route path="/inward" element={<InwardPage user={user} />} />
-              <Route path="/outward" element={<OutwardPage user={user} />} />
-              <Route path="/notifications" element={<NotificationsPage user={user} />} />
-              {user?.role === 'admin' && (
-                <>
-                  <Route path="/company-onboarding" element={<CompanyOnboardingPage />} />
-                  <Route path="/admin" element={<AdminPage />} />
-                </>
-              )}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
-        ) : (
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        )}
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </>
   );
 }
 
-export default App;
+export default function AppWithProvider() {
+  return (
+    <UnsavedChangesProvider>
+      <App />
+    </UnsavedChangesProvider>
+  );
+}
