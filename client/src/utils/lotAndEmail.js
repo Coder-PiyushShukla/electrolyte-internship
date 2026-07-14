@@ -29,6 +29,11 @@ export async function sendChallanReportEmail({ to, recipients, brand, challanNo,
     return data;
 }
 
+export async function revertInwardChallan({ brand, challanNo }) {
+    const { data } = await api.post('/inward/revert', { brand, challanNo });
+    return data;
+}
+
 // Record inward inventory - called when the user clicks "Save Challan".
 // Writes one pcb_transactions row (transaction_type = 'in_ward') per item
 // line so the Outward page's inventory check sees the received stock.

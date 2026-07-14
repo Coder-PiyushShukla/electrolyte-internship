@@ -41,6 +41,11 @@ export async function createDispatch(payload) {
     return data.data;
 }
 
+export async function revertOutwardDispatch({ dispatchId, dcNo }) {
+    const { data } = await api.post('/outward/dispatches/revert', { dispatchId, dcNo });
+    return data;
+}
+
 export async function listDispatches() {
     const { data } = await api.get('/outward/dispatches');
     return data.data;

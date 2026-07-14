@@ -43,6 +43,7 @@ router.get('/inventory-check', outwardCtrl.inventoryCheck);
 
 // Dispatches
 router.post('/dispatches', outwardCtrl.createDispatch);
+router.post('/dispatches/revert', outwardCtrl.revertDispatch);
 router.get('/dispatches', outwardCtrl.getDispatches);
 router.get('/dispatches/:id', outwardCtrl.getDispatchById);
 router.get('/dispatches/:id/download', outwardDocCtrl.downloadDocument);

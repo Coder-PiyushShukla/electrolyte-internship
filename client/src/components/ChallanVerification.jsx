@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
     FiPlus, FiTrash2, FiMail, FiSave, FiClock, FiSearch,
     FiChevronDown, FiFileText, FiX, FiCheck, FiAlertTriangle,
@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { lookupDescription, getItemCodes } from '../data/masterData';
-import { peekNextLotNo, incrementLotNo, sendChallanReportEmail, recordInwardInventory } from '../utils/lotAndEmail';
+import { peekNextLotNo, incrementLotNo, sendChallanReportEmail, recordInwardInventory, revertInwardChallan } from '../utils/lotAndEmail';
 import { getCustomers } from '../utils/outwardApi';
 import ItemCodeCombobox from './ItemCodeCombobox';
 
@@ -264,6 +264,7 @@ export default function ChallanVerification() {
     const [emailRecipients, setEmailRecipients] = useState([createEmailRecipient()]);
     const [showEmailInput, setShowEmailInput] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
+    const historyRestoreRef = useRef(false);
 
     const itemCodes = getItemCodes(brand);
 
@@ -286,6 +287,10 @@ export default function ChallanVerification() {
     // for real when the challan is saved.
     useEffect(() => {
         let cancelled = false;
+        if (historyRestoreRef.current) {
+            historyRestoreRef.current = false;
+            return () => { cancelled = true; };
+        }
         peekNextLotNo(brand)
             .then((next) => { if (!cancelled) setLotNo(next); })
             .catch(() => { if (!cancelled) setLotNo(null); });
@@ -382,8 +387,16 @@ export default function ChallanVerification() {
 
     // ── Load from History ──
 
-    const handleLoad = (h) => {
+    const handleLoad = async (h) => {
+        try {
+            await revertInwardChallan({ brand: h.brand, challanNo: h.challanNo });
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to remove the previously saved challan from inventory.');
+            return;
+        }
+
         const loadedBrand = companies.some((c) => c.brand === h.brand) ? h.brand : 'Bajaj';
+        historyRestoreRef.current = true;
         setBrand(loadedBrand);
         setChallanNo(h.challanNo);
         setChallanDate(h.challanDate);

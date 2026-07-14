@@ -16,6 +16,29 @@ router.use(auth);
 // rows: [{ itemCode, description, physicalQty }]
 // Uses physicalQty (the count the operator actually received, not the challan qty)
 // as the authoritative quantity added to inventory.
+router.post('/revert', async (req, res) => {
+  try {
+    const { brand, challanNo } = req.body;
+    if (!brand || !challanNo) {
+      return res.status(400).json({ error: 'brand and challanNo are required.' });
+    }
+
+    const result = await db.query(
+      `DELETE FROM pcb_transactions
+       WHERE transaction_type = 'in_ward'
+         AND brand_name = $1
+         AND dc_number = $2
+       RETURNING id`,
+      [brand.trim(), challanNo.trim()]
+    );
+
+    res.json({ message: `Removed ${result.rowCount || 0} inward inventory record(s).` });
+  } catch (err) {
+    console.error('Revert inward challan error:', err);
+    res.status(500).json({ error: `Failed to revert inward challan: ${err.message}` });
+  }
+});
+
 router.post('/record', async (req, res) => {
   try {
     const { brand, challanNo, challanDate, lotNo, rows } = req.body;

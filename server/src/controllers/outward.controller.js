@@ -399,6 +399,49 @@ exports.createDispatch = async (req, res) => {
   }
 };
 
+exports.revertDispatch = async (req, res) => {
+  try {
+    const { dispatchId, dcNo } = req.body;
+    if (!dispatchId && !dcNo) {
+      return res.status(400).json({ error: 'dispatchId or dcNo is required.' });
+    }
+
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const dispatchResult = await client.query(
+        dispatchId
+          ? 'SELECT id, dc_no FROM outward_dispatches WHERE id = $1'
+          : 'SELECT id, dc_no FROM outward_dispatches WHERE dc_no = $1',
+        [dispatchId || dcNo]
+      );
+
+      if (dispatchResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.json({ message: 'No saved dispatch found to revert.' });
+      }
+
+      const dispatch = dispatchResult.rows[0];
+      await client.query(`DELETE FROM pcb_transactions WHERE transaction_type = 'out_ward' AND dc_number = $1`, [dispatch.dc_no]);
+      await client.query(`DELETE FROM outward_dispatch_items WHERE dispatch_id = $1`, [dispatch.id]);
+      await client.query(`DELETE FROM outward_eway_bills WHERE dispatch_id = $1`, [dispatch.id]);
+      await client.query(`DELETE FROM outward_dispatches WHERE id = $1`, [dispatch.id]);
+
+      await client.query('COMMIT');
+      res.json({ message: `Reverted dispatch ${dispatch.dc_no}.` });
+    } catch (innerErr) {
+      await client.query('ROLLBACK');
+      throw innerErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Revert dispatch error:', err);
+    res.status(500).json({ error: `Failed to revert dispatch: ${err.message}` });
+  }
+};
+
 // GET /api/outward/dispatches - list all outward dispatches
 exports.getDispatches = async (req, res) => {
   try {

@@ -7,7 +7,7 @@ import {
 import toast from 'react-hot-toast';
 import {
     getCustomers, getProducts, getCompanyInfo, peekNextDc, peekNextOutwardLot,
-    checkInventory, createDispatch, generateDocument, previewDispatchPdf, downloadDispatchPdf, sendOutwardEmail,
+    checkInventory, createDispatch, generateDocument, previewDispatchPdf, downloadDispatchPdf, sendOutwardEmail, revertOutwardDispatch,
 } from '../utils/outwardApi';
 import { getEwayBill } from '../utils/ewayBillApi';
 import EwayBillModal from './EwayBillModal';
@@ -149,16 +149,6 @@ export default function OutwardForm({ user }) {
         if (!brand) return;
         let cancelled = false;
 
-        getCustomers().then((list) => {
-            if (cancelled) return;
-            const info = list.find((c) => c.brand === brand);
-            setCustomerInfo(info || null);
-        });
-
-        getProducts(brand).then((list) => { if (!cancelled) setProducts(list); }).catch(() => { });
-        peekNextDc().then((dc) => { if (!cancelled) setDcNo(dc); }).catch(() => { });
-        peekNextOutwardLot(brand).then((lot) => { if (!cancelled) setLotNo(lot); }).catch(() => { });
-
         if (loadingHistory) {
             setLoadingHistory(false);
             return;
@@ -168,6 +158,16 @@ export default function OutwardForm({ user }) {
             restoringHistoryRef.current = false;
             return;
         }
+
+        getCustomers().then((list) => {
+            if (cancelled) return;
+            const info = list.find((c) => c.brand === brand);
+            setCustomerInfo(info || null);
+        });
+
+        getProducts(brand).then((list) => { if (!cancelled) setProducts(list); }).catch(() => { });
+        peekNextDc().then((dc) => { if (!cancelled) setDcNo(dc); }).catch(() => { });
+        peekNextOutwardLot(brand).then((lot) => { if (!cancelled) setLotNo(lot); }).catch(() => { });
 
         // Reset rows + saved state when switching customer, since item codes differ
         setRows([emptyItemRow()]);
@@ -300,6 +300,7 @@ export default function OutwardForm({ user }) {
 
             const historyPayload = {
                 id: Date.now(),
+                dispatchId: dispatch.id,
                 brand,
                 dcNo: dispatch.dc_no,
                 lotNo: dispatch.lot_no,
@@ -374,7 +375,14 @@ export default function OutwardForm({ user }) {
         }
     };
 
-    const handleLoadHistory = (entry) => {
+const handleLoadHistory = async (entry) => {
+        try {
+            await revertOutwardDispatch({ dispatchId: entry.dispatchId || null, dcNo: entry.dcNo || null });
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to revert the previously saved dispatch.');
+            return;
+        }
+
         setLoadingHistory(true);
         restoringHistoryRef.current = true;
         setBrand(entry.brand || '');
