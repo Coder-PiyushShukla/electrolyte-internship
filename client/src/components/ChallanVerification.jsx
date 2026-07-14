@@ -267,6 +267,7 @@ export default function ChallanVerification() {
     const [showEmailInput, setShowEmailInput] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
     const historyRestoreRef = useRef(false);
+    const [hasUserInteracted, setHasUserInteracted] = useState(false);
     const [draftSnapshot, setDraftSnapshot] = useState(() => ({
         brand: 'Bajaj',
         challanNo: '',
@@ -291,8 +292,8 @@ export default function ChallanVerification() {
     useEffect(() => {
         const currentDraft = serializeInwardDraft();
         const isDirty = JSON.stringify(currentDraft) !== JSON.stringify(draftSnapshot);
-        setHasUnsavedChanges(isDirty);
-    }, [draftSnapshot, serializeInwardDraft, setHasUnsavedChanges]);
+        setHasUnsavedChanges(hasUserInteracted && isDirty);
+    }, [draftSnapshot, hasUserInteracted, serializeInwardDraft, setHasUnsavedChanges]);
 
     // ── Load the shared company/brand list on mount (same source as Outward page) ──
     useEffect(() => {
@@ -325,11 +326,18 @@ export default function ChallanVerification() {
 
     // ── Row Operations ──
 
-    const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+    const addRow = () => {
+        setHasUserInteracted(true);
+        setRows((prev) => [...prev, emptyRow()]);
+    };
 
-    const removeRow = (id) => setRows((prev) => prev.filter((r) => r.id !== id));
+    const removeRow = (id) => {
+        setHasUserInteracted(true);
+        setRows((prev) => prev.filter((r) => r.id !== id));
+    };
 
     const updateRow = useCallback((id, field, value) => {
+        setHasUserInteracted(true);
         setRows((prev) =>
             prev.map((row) => {
                 if (row.id !== id) return row;
@@ -345,6 +353,7 @@ export default function ChallanVerification() {
 
     // When brand changes, re-look up all descriptions
     const handleBrandChange = (newBrand) => {
+        setHasUserInteracted(true);
         setBrand(newBrand);
         setRows((prev) =>
             prev.map((row) => ({
@@ -406,6 +415,7 @@ export default function ChallanVerification() {
             saveHistory(updated);
 
             setDraftSnapshot(serializeInwardDraft());
+            setHasUserInteracted(false);
             setHasUnsavedChanges(false);
             toast.success(`Challan saved! Lot No. ${finalLotNo}: ${validRows.length} item(s) added to inventory.`);
         } catch (err) {
@@ -416,9 +426,9 @@ export default function ChallanVerification() {
     // ── Load from History ──
 
     const handleLoad = async (h) => {
-        if (JSON.stringify(serializeInwardDraft()) !== JSON.stringify(draftSnapshot)) {
-            const confirmed = window.confirm('You have unsaved changes. Save the challan first or your work will be lost.');
-            if (!confirmed) return;
+        if (hasUserInteracted && JSON.stringify(serializeInwardDraft()) !== JSON.stringify(draftSnapshot)) {
+            const confirmed = window.confirm('You have unsaved changes. Click OK to stay here and keep the draft, or Cancel to discard it and load this challan.');
+            if (confirmed) return;
         }
 
         try {
@@ -435,6 +445,7 @@ export default function ChallanVerification() {
         setChallanDate(h.challanDate);
         setLotNo(h.lotNo ?? null);
         setRows(h.rows);
+        setHasUserInteracted(false);
         setDraftSnapshot({
             brand: loadedBrand,
             challanNo: h.challanNo,
@@ -463,6 +474,7 @@ export default function ChallanVerification() {
     };
 
     const updateEmailRecipient = (id, field, value) => {
+        setHasUserInteracted(true);
         setEmailRecipients((prev) => prev.map((recipient) => (recipient.id === id ? { ...recipient, [field]: value } : recipient)));
     };
 

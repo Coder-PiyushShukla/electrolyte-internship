@@ -19,11 +19,11 @@ function UnsavedChangesGuard() {
 
   useEffect(() => {
     if (blocker.state === 'blocked') {
-      const confirmed = window.confirm('You have unsaved changes. Save the challan first or your work will be lost.');
+      const confirmed = window.confirm('You have unsaved changes. Click OK to stay here and keep the draft, or Cancel to discard it and continue.');
       if (confirmed) {
-        blocker.proceed();
-      } else {
         blocker.reset();
+      } else {
+        blocker.proceed();
       }
     }
   }, [blocker]);
@@ -74,8 +74,8 @@ function App() {
 
   const handleLogout = () => {
     if (hasUnsavedChanges) {
-      const confirmed = window.confirm('You have unsaved changes. Save the challan first or your work will be lost.');
-      if (!confirmed) return;
+      const confirmed = window.confirm('You have unsaved changes. Click OK to stay here and keep the draft, or Cancel to discard it and log out.');
+      if (confirmed) return;
     }
     localStorage.removeItem('pcb_token');
     localStorage.removeItem('pcb_user');

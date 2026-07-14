@@ -130,6 +130,7 @@ export default function OutwardForm({ user }) {
     const [showEmailInput, setShowEmailInput] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
     const [ewayDetails, setEwayDetails] = useState(null);
+    const [hasUserInteracted, setHasUserInteracted] = useState(false);
     const [draftSnapshot, setDraftSnapshot] = useState(() => ({
         brand: '',
         challanDate: new Date().toISOString().split('T')[0],
@@ -159,8 +160,8 @@ export default function OutwardForm({ user }) {
     useEffect(() => {
         const currentDraft = serializeOutwardDraft();
         const isDirty = JSON.stringify(currentDraft) !== JSON.stringify(draftSnapshot);
-        setHasUnsavedChanges(isDirty && !savedDispatch);
-    }, [draftSnapshot, serializeOutwardDraft, savedDispatch, setHasUnsavedChanges]);
+        setHasUnsavedChanges(hasUserInteracted && isDirty && !savedDispatch);
+    }, [draftSnapshot, hasUserInteracted, serializeOutwardDraft, savedDispatch, setHasUnsavedChanges]);
 
     // ── Load customer list on mount ──
     useEffect(() => {
@@ -229,10 +230,17 @@ export default function OutwardForm({ user }) {
 
     // ── Row operations ──
 
-    const addRow = () => setRows((prev) => [...prev, emptyItemRow()]);
-    const removeRow = (id) => setRows((prev) => prev.filter((r) => r.id !== id));
+    const addRow = () => {
+        setHasUserInteracted(true);
+        setRows((prev) => [...prev, emptyItemRow()]);
+    };
+    const removeRow = (id) => {
+        setHasUserInteracted(true);
+        setRows((prev) => prev.filter((r) => r.id !== id));
+    };
 
     const updateRow = useCallback((id, field, value) => {
+        setHasUserInteracted(true);
         setRows((prev) =>
             prev.map((row) => {
                 if (row.id !== id) return row;
@@ -361,6 +369,7 @@ export default function OutwardForm({ user }) {
             setHistoryEntries(updatedHistory);
 
             setDraftSnapshot(serializeOutwardDraft());
+            setHasUserInteracted(false);
             setHasUnsavedChanges(false);
             toast.success(`Dispatch saved! (${dispatch.dc_no})`);
         } catch (err) {
@@ -411,9 +420,9 @@ export default function OutwardForm({ user }) {
     };
 
 const handleLoadHistory = async (entry) => {
-        if (JSON.stringify(serializeOutwardDraft()) !== JSON.stringify(draftSnapshot)) {
-            const confirmed = window.confirm('You have unsaved changes. Save the challan first or your work will be lost.');
-            if (!confirmed) return;
+        if (hasUserInteracted && JSON.stringify(serializeOutwardDraft()) !== JSON.stringify(draftSnapshot)) {
+            const confirmed = window.confirm('You have unsaved changes. Click OK to stay here and keep the draft, or Cancel to discard it and load this challan.');
+            if (confirmed) return;
         }
 
         try {
@@ -445,6 +454,7 @@ const handleLoadHistory = async (entry) => {
         })));
         setSavedDispatch(null);
         setCustomerInfo(customers.find((c) => c.brand === entry.brand) || null);
+        setHasUserInteracted(false);
         setDraftSnapshot({
             brand: entry.brand || '',
             challanDate: entry.challanDate || new Date().toISOString().split('T')[0],
@@ -493,6 +503,7 @@ const handleLoadHistory = async (entry) => {
     };
 
     const updateEmailRecipient = (id, field, value) => {
+        setHasUserInteracted(true);
         setEmailRecipients((prev) => prev.map((recipient) => (recipient.id === id ? { ...recipient, [field]: value } : recipient)));
     };
 
