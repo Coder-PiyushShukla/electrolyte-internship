@@ -16,9 +16,15 @@ export async function incrementLotNo(brand) {
 }
 
 // Send the verification report email via the server's SMTP relay.
-export async function sendChallanReportEmail({ to, brand, challanNo, challanDate, lotNo, rows }) {
+export async function sendChallanReportEmail({ to, recipients, brand, challanNo, challanDate, lotNo, rows }) {
     const { data } = await api.post('/email/send-report', {
-        to, brand, challanNo, challanDate, lotNo, rows,
+        to,
+        recipients,
+        brand,
+        challanNo,
+        challanDate,
+        lotNo,
+        rows,
     });
     return data;
 }

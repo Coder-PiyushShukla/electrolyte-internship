@@ -45,6 +45,10 @@ function emptyRow() {
     return { id: Date.now() + Math.random(), itemCode: '', description: '', challanQty: '', physicalQty: '' };
 }
 
+function createEmailRecipient(email = '', sendEway = false) {
+    return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, email, sendEway };
+}
+
 // ── Row Status Colors ─────────────────────────────────────────────────────────
 
 function remarkBadge(remark) {
@@ -257,7 +261,7 @@ export default function ChallanVerification() {
     const [rows, setRows] = useState([emptyRow()]);
     const [showHistory, setShowHistory] = useState(false);
     const [showVerify, setShowVerify] = useState(false);
-    const [emailTo, setEmailTo] = useState('');
+    const [emailRecipients, setEmailRecipients] = useState([createEmailRecipient()]);
     const [showEmailInput, setShowEmailInput] = useState(false);
     const [sendingEmail, setSendingEmail] = useState(false);
 
@@ -392,14 +396,31 @@ export default function ChallanVerification() {
     // desktops without a configured default mail client. The server now
     // sends the email directly via SMTP and confirms success.
 
+    const addEmailRecipient = () => {
+        setEmailRecipients((prev) => [...prev, createEmailRecipient()]);
+    };
+
+    const removeEmailRecipient = (id) => {
+        setEmailRecipients((prev) => (prev.length > 1 ? prev.filter((recipient) => recipient.id !== id) : prev));
+    };
+
+    const updateEmailRecipient = (id, field, value) => {
+        setEmailRecipients((prev) => prev.map((recipient) => (recipient.id === id ? { ...recipient, [field]: value } : recipient)));
+    };
+
     const handleSendEmail = async () => {
         if (!challanNo.trim()) { toast.error('Please enter a Challan Number.'); return; }
-        if (!emailTo.trim()) { toast.error('Please enter a recipient email address.'); return; }
+
+        const recipients = emailRecipients
+            .map((recipient) => ({ ...recipient, email: recipient.email.trim() }))
+            .filter((recipient) => recipient.email);
+
+        if (recipients.length === 0) { toast.error('Please enter at least one recipient email address.'); return; }
 
         setSendingEmail(true);
         try {
             await sendChallanReportEmail({
-                to: emailTo.trim(),
+                recipients,
                 brand,
                 challanNo: challanNo.trim(),
                 challanDate,
@@ -431,7 +452,7 @@ export default function ChallanVerification() {
                 <VerifyReportModal
                     onClose={() => setShowVerify(false)}
                     challanNo={challanNo}
-                    emailTo={emailTo}
+                    emailTo={emailRecipients.map((recipient) => recipient.email).filter(Boolean).join(', ')}
                     htmlBody={buildHtmlReport({ brand, challanNo, challanDate, lotNo: lotNo ?? '-', rows })}
                 />
             )}
@@ -667,27 +688,51 @@ export default function ChallanVerification() {
 
                     {/* Email Input (toggle) */}
                     {showEmailInput && (
-                        <div className="flex items-center gap-3 p-4 bg-surface-800/30 rounded-xl border border-surface-700/50 animate-slide-down">
-                            <FiMail className="w-4 h-4 text-surface-400 shrink-0" />
-                            <input
-                                type="email"
-                                value={emailTo}
-                                onChange={(e) => setEmailTo(e.target.value)}
-                                placeholder="recipient@example.com"
-                                className={`flex-1 ${inputCls}`}
-                            />
-                            <button
-                                onClick={handleSendEmail}
-                                disabled={sendingEmail}
-                                className="flex items-center gap-2 px-4 py-2.5 text-sm text-white bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 rounded-xl shadow-lg shadow-brand-500/25 transition-all duration-200 whitespace-nowrap cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                            >
-                                {sendingEmail ? (
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <FiMail className="w-4 h-4" />
-                                )}
-                                {sendingEmail ? 'Sending...' : 'Open Email'}
-                            </button>
+                        <div className="space-y-3 p-4 bg-surface-800/30 rounded-xl border border-surface-700/50 animate-slide-down">
+                            <div className="space-y-2">
+                                {emailRecipients.map((recipient) => (
+                                    <div key={recipient.id} className="flex flex-wrap items-center gap-2">
+                                        <FiMail className="w-4 h-4 text-surface-400 shrink-0" />
+                                        <input
+                                            type="email"
+                                            value={recipient.email}
+                                            onChange={(e) => updateEmailRecipient(recipient.id, 'email', e.target.value)}
+                                            placeholder="recipient@example.com"
+                                            className={`flex-1 ${inputCls}`}
+                                        />
+                                        {emailRecipients.length > 1 && (
+                                            <button
+                                                onClick={() => removeEmailRecipient(recipient.id)}
+                                                className="p-2.5 text-surface-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                                                title="Remove recipient"
+                                            >
+                                                <FiTrash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <button
+                                    onClick={addEmailRecipient}
+                                    className="flex items-center gap-2 text-sm text-brand-400 hover:text-brand-300 transition-colors cursor-pointer"
+                                >
+                                    <FiPlus className="w-4 h-4" />
+                                    Add recipient
+                                </button>
+                                <button
+                                    onClick={handleSendEmail}
+                                    disabled={sendingEmail}
+                                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-white bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 rounded-xl shadow-lg shadow-brand-500/25 transition-all duration-200 whitespace-nowrap cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    {sendingEmail ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <FiMail className="w-4 h-4" />
+                                    )}
+                                    {sendingEmail ? 'Sending...' : 'Open Email'}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

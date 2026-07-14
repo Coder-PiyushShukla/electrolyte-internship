@@ -140,12 +140,17 @@ function buildSummaryHtml(dispatch) {
   </div>`;
 }
 
-// POST /api/outward/send-email  { dispatchId, to }
+// POST /api/outward/send-email  { dispatchId, to, recipients }
 exports.sendOutwardEmail = async (req, res) => {
   try {
-    const { dispatchId, to } = req.body;
+    const { dispatchId, to, recipients } = req.body;
     if (!dispatchId) return res.status(400).json({ error: 'dispatchId is required.' });
-    if (!to || !to.trim()) return res.status(400).json({ error: 'Recipient email address is required.' });
+
+    const normalizedRecipients = (Array.isArray(recipients) ? recipients : (to ? [{ email: to, sendEway: false }] : []))
+      .map((entry) => (typeof entry === 'string' ? { email: entry.trim(), sendEway: false } : { email: String(entry?.email || '').trim(), sendEway: Boolean(entry?.sendEway) }))
+      .filter((entry) => entry.email);
+
+    if (normalizedRecipients.length === 0) return res.status(400).json({ error: 'Recipient email address is required.' });
 
     const dispatchResult = await db.query('SELECT * FROM outward_dispatches WHERE id = $1', [dispatchId]);
     if (dispatchResult.rows.length === 0) return res.status(404).json({ error: 'Dispatch not found.' });
@@ -169,77 +174,75 @@ exports.sendOutwardEmail = async (req, res) => {
     }
 
     const actor = req.user?.username;
-    const recipient = to.trim();
     const html = buildSummaryHtml(dispatch);
     const pdfFilename = `${dispatch.dc_no.replace(/\//g, '-')}.pdf`;
-    const attachments = [{ filename: pdfFilename, path: pdfPath }];
-    if (eway?.eway_pdf_path && fs.existsSync(eway.eway_pdf_path)) {
-      attachments.push({
-        filename: eway.eway_pdf_original_name || `EWAY-${dispatch.dc_no.replace(/\//g, '-')}.pdf`,
-        path: eway.eway_pdf_path,
-      });
-    }
     const subject = `Outward PCB Delivery Challan - ${dispatch.dc_no}`;
     const fromAddress = process.env.GMAIL_USER || process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
 
-    // ── Strategy 1: Try Gmail API (HTTPS - works everywhere, sends to anyone) ──
-    if (isGmailApiConfigured()) {
-      try {
-        console.log('📧 Sending outward email via Gmail API...');
-        await sendViaGmailApi({
-          from: process.env.GMAIL_USER,
-          to: to.trim(),
+    for (const recipientEntry of normalizedRecipients) {
+      const recipient = recipientEntry.email.trim();
+      const attachments = [{ filename: pdfFilename, path: pdfPath }];
+      if (recipientEntry.sendEway && eway?.eway_pdf_path && fs.existsSync(eway.eway_pdf_path)) {
+        attachments.push({
+          filename: eway.eway_pdf_original_name || `EWAY-${dispatch.dc_no.replace(/\//g, '-')}.pdf`,
+          path: eway.eway_pdf_path,
+        });
+      }
+
+      const provider = await (async () => {
+        if (isGmailApiConfigured()) {
+          try {
+            console.log('📧 Sending outward email via Gmail API...');
+            await sendViaGmailApi({
+              from: process.env.GMAIL_USER,
+              to: recipient,
+              subject,
+              html,
+              attachments,
+            });
+            return 'Gmail API';
+          } catch (gmailErr) {
+            console.warn('⚠️ Gmail API failed, falling back to next provider:', gmailErr.message);
+          }
+        }
+
+        if (process.env.RESEND_API_KEY) {
+          try {
+            console.log('📧 Sending outward email via Resend API...');
+            const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
+            await sendViaResend({
+              to: recipient,
+              from: resendFrom,
+              subject,
+              html,
+              attachments,
+            });
+            return 'Resend';
+          } catch (resendErr) {
+            console.warn('⚠️ Resend API failed, falling back to SMTP:', resendErr.message);
+          }
+        }
+
+        const transporter = getTransporter();
+        if (!transporter) {
+          throw new Error('Email sending is not configured. Set GMAIL_CLIENT_ID/GMAIL_CLIENT_SECRET/GMAIL_REFRESH_TOKEN (recommended), or RESEND_API_KEY, or SMTP_HOST/SMTP_USER/SMTP_PASS.');
+        }
+
+        console.log('📧 Sending outward email via SMTP...');
+        await transporter.sendMail({
+          from: fromAddress,
+          to: recipient,
           subject,
           html,
           attachments,
         });
-        await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'Gmail API' });
-        return res.json({ message: 'Email successfully sent via Gmail API.' });
-      } catch (gmailErr) {
-        console.warn('⚠️ Gmail API failed, falling back to next provider:', gmailErr.message);
-        // Fall through to next strategy
-      }
+        return 'SMTP';
+      })();
+
+      await notifyChallanSent({ actor, to: recipient, dispatch, provider });
     }
 
-    // ── Strategy 2: Try Resend (HTTP API - works on Render free tier) ──
-    if (process.env.RESEND_API_KEY) {
-      try {
-        console.log('📧 Sending outward email via Resend API...');
-        const resendFrom = process.env.RESEND_FROM || 'PCB Tracker <onboarding@resend.dev>';
-        await sendViaResend({
-          to: to.trim(),
-          from: resendFrom,
-          subject,
-          html,
-          attachments,
-        });
-        await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'Resend' });
-        return res.json({ message: 'Email successfully sent via Resend.' });
-      } catch (resendErr) {
-        console.warn('⚠️ Resend API failed, falling back to SMTP:', resendErr.message);
-        // Fall through to SMTP
-      }
-    }
-
-    // ── Strategy 3: Fallback to SMTP (works locally) ──
-    const transporter = getTransporter();
-    if (!transporter) {
-      return res.status(503).json({
-        error: 'Email sending is not configured. Set GMAIL_CLIENT_ID/GMAIL_CLIENT_SECRET/GMAIL_REFRESH_TOKEN (recommended), or RESEND_API_KEY, or SMTP_HOST/SMTP_USER/SMTP_PASS.',
-      });
-    }
-
-    console.log('📧 Sending outward email via SMTP...');
-    await transporter.sendMail({
-      from: fromAddress,
-      to: to.trim(),
-      subject,
-      html,
-      attachments,
-    });
-
-    await notifyChallanSent({ actor, to: recipient, dispatch, provider: 'SMTP' });
-    res.json({ message: 'Email successfully sent via SMTP.' });
+    res.json({ message: `Email successfully sent to ${normalizedRecipients.length} recipient(s).` });
   } catch (err) {
     console.error('Send outward email error:', err);
     const { dispatchId, to } = req.body || {};

@@ -78,7 +78,7 @@ export async function downloadDispatchPdf(dispatchId, fileName) {
     window.URL.revokeObjectURL(url);
 }
 
-export async function sendOutwardEmail({ dispatchId, to }) {
-    const { data } = await api.post('/outward/send-email', { dispatchId, to });
+export async function sendOutwardEmail({ dispatchId, to, recipients }) {
+    const { data } = await api.post('/outward/send-email', { dispatchId, to, recipients });
     return data;
 }
