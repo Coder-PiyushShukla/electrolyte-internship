@@ -31,11 +31,13 @@ async function ensureTable() {
       company_name   VARCHAR(255) NOT NULL,
       address        TEXT,
       phone          VARCHAR(50),
+      is_active      BOOLEAN      NOT NULL DEFAULT TRUE,
       gstin          VARCHAR(50),
       email          VARCHAR(255),
       hsn_code       VARCHAR(20),
       default_rate   NUMERIC(10, 2) DEFAULT 0,
-      created_at     TIMESTAMPTZ DEFAULT NOW()
+      created_at     TIMESTAMPTZ DEFAULT NOW(),
+      updated_at     TIMESTAMPTZ DEFAULT NOW()
     )
   `);
 
@@ -78,7 +80,9 @@ async function ensureTable() {
       gstin = EXCLUDED.gstin,
       email = EXCLUDED.email,
       hsn_code = EXCLUDED.hsn_code,
-      default_rate = EXCLUDED.default_rate
+      default_rate = EXCLUDED.default_rate,
+      updated_at = NOW(),
+      is_active = COALESCE(brands.is_active, TRUE)
   `);
 
   await db.query(`
@@ -111,6 +115,9 @@ function rowToCustomer(row) {
     email: row.email || '',
     hsnCode: row.hsn_code || '',
     defaultRate: Number(row.default_rate || 0),
+    isActive: row.is_active === undefined ? true : Boolean(row.is_active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -155,4 +162,33 @@ async function addCustomer({ brand, companyName, address, phone, gstin, email, h
   return rowToCustomer(result.rows[0]);
 }
 
-module.exports = { COMPANY, getCompany, getCustomer, getAllCustomers, addCustomer };
+// Update an existing company (partial fields allowed)
+async function updateCustomer(brand, fields = {}) {
+  await ensureTable();
+  const allowed = ['company_name','address','phone','gstin','email','hsn_code','default_rate','is_active'];
+  const sets = [];
+  const vals = [];
+  let idx = 1;
+  for (const key of Object.keys(fields)) {
+    if (!allowed.includes(key)) continue;
+    sets.push(`${key} = $${idx}`);
+    vals.push(fields[key]);
+    idx++;
+  }
+  if (sets.length === 0) return null;
+  vals.push(brand);
+  const q = `UPDATE brands SET ${sets.join(',')}, updated_at = NOW() WHERE brand_key = $${idx} RETURNING *`;
+  const res = await db.query(q, vals);
+  if (res.rows.length === 0) return null;
+  return rowToCustomer(res.rows[0]);
+}
+
+// Soft-deactivate a company
+async function deactivateCustomer(brand) {
+  await ensureTable();
+  const res = await db.query(`UPDATE brands SET is_active = FALSE, updated_at = NOW() WHERE brand_key = $1 RETURNING *`, [brand]);
+  if (res.rows.length === 0) return null;
+  return rowToCustomer(res.rows[0]);
+}
+
+module.exports = { COMPANY, getCompany, getCustomer, getAllCustomers, addCustomer, updateCustomer, deactivateCustomer };

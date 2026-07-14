@@ -51,6 +51,8 @@ app.use('/api/email',        require('./routes/email.routes'));
 app.use('/api/inward',       require('./routes/inward.routes'));
 app.use('/api/outward',      require('./routes/outward.routes'));
 app.use('/api/notifications', require('./routes/notification.routes'));
+// Company & Product management (onboarding)
+app.use('/api/companies', require('./routes/company.routes'));
 
 // ── Health Check ──
 app.get('/api/health', (req, res) => {

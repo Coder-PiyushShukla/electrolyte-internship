@@ -1,9 +1,7 @@
-// ─── Master PCB Item Code Database (server-side copy) ───
-// Mirrors client/src/data/masterData.js - used by the Product API
-// (GET /api/products?company=Bajaj) so the Outward page item-code dropdown
-// and auto-filled description/HSN come from the server, consistent with
-// the Inward page's lookup table.
+// DB-backed master product list.
+const db = require('../config/db');
 
+// Basic in-memory seed to populate products table on first run.
 const ATOMBERG_ITEMS = {
   SA0087: 'PCB_Main_1200mm Ozeo_GV4',
   SA0038: 'PCB_Regulator_1200mm Renesa Alpha_GV4',
@@ -42,14 +40,124 @@ const BAJAJ_ITEMS = {
 
 const ALL_ITEMS = { Atomberg: ATOMBERG_ITEMS, Bajaj: BAJAJ_ITEMS };
 
-function getItemsForBrand(brand) {
-  return ALL_ITEMS[brand] || {};
+async function ensureTable() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS products (
+      id SERIAL PRIMARY KEY,
+      company_key VARCHAR(50) NOT NULL REFERENCES brands(brand_key) ON DELETE CASCADE,
+      item_code VARCHAR(100) NOT NULL,
+      description TEXT,
+      unit VARCHAR(20) DEFAULT 'Nos',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(company_key, item_code)
+    )
+  `);
+
+  // Seed initial items for known brands if table is empty for that brand
+  for (const [brand, items] of Object.entries(ALL_ITEMS)) {
+    const exist = await db.query('SELECT 1 FROM products WHERE company_key = $1 LIMIT 1', [brand]);
+    if (exist.rows.length === 0) {
+      const client = await db.pool.connect();
+      try {
+        await client.query('BEGIN');
+        for (const [code, desc] of Object.entries(items)) {
+          await client.query(
+            `INSERT INTO products (company_key, item_code, description, unit) VALUES ($1,$2,$3,'Nos') ON CONFLICT (company_key,item_code) DO NOTHING`,
+            [brand, String(code).trim(), desc]
+          );
+        }
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK');
+      } finally {
+        client.release();
+      }
+    }
+  }
 }
 
-function lookupDescription(brand, itemCode) {
+function rowToProduct(row) {
+  return {
+    id: row.id,
+    itemCode: row.item_code,
+    description: row.description || '',
+    unit: row.unit || 'Nos',
+    isActive: row.is_active === undefined ? true : Boolean(row.is_active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function getItemsForBrand(brand) {
+  if (!brand) return {};
+  await ensureTable();
+  const res = await db.query('SELECT item_code, description FROM products WHERE company_key = $1 AND is_active = TRUE ORDER BY item_code', [brand]);
+  const map = {};
+  for (const r of res.rows) map[r.item_code] = r.description;
+  return map;
+}
+
+async function lookupDescription(brand, itemCode) {
   if (!brand || !itemCode) return '';
-  const db = getItemsForBrand(brand);
-  return db[String(itemCode).trim()] || '';
+  await ensureTable();
+  const res = await db.query('SELECT description FROM products WHERE company_key = $1 AND item_code = $2 LIMIT 1', [brand, String(itemCode).trim()]);
+  if (res.rows.length === 0) return '';
+  return res.rows[0].description || '';
 }
 
-module.exports = { ATOMBERG_ITEMS, BAJAJ_ITEMS, ALL_ITEMS, getItemsForBrand, lookupDescription };
+async function getProductsByBrand(brand) {
+  await ensureTable();
+  const res = await db.query('SELECT * FROM products WHERE company_key = $1 ORDER BY item_code', [brand]);
+  return res.rows.map(rowToProduct);
+}
+
+async function addProduct(brand, { itemCode, description, unit }) {
+  await ensureTable();
+  const res = await db.query(
+    `INSERT INTO products (company_key, item_code, description, unit) VALUES ($1,$2,$3,$4) RETURNING *`,
+    [brand, String(itemCode).trim(), description || '', unit || 'Nos']
+  );
+  return rowToProduct(res.rows[0]);
+}
+
+async function updateProduct(id, fields = {}) {
+  await ensureTable();
+  const allowed = ['description','unit','is_active','item_code'];
+  const sets = [];
+  const vals = [];
+  let idx = 1;
+  for (const key of Object.keys(fields)) {
+    if (!allowed.includes(key)) continue;
+    sets.push(`${key} = $${idx}`);
+    vals.push(fields[key]);
+    idx++;
+  }
+  if (sets.length === 0) return null;
+  vals.push(id);
+  const q = `UPDATE products SET ${sets.join(',')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
+  const res = await db.query(q, vals);
+  if (res.rows.length === 0) return null;
+  return rowToProduct(res.rows[0]);
+}
+
+async function deactivateProduct(id) {
+  await ensureTable();
+  const res = await db.query('UPDATE products SET is_active = FALSE, updated_at = NOW() WHERE id = $1 RETURNING *', [id]);
+  if (res.rows.length === 0) return null;
+  return rowToProduct(res.rows[0]);
+}
+
+module.exports = {
+  ATOMBERG_ITEMS,
+  BAJAJ_ITEMS,
+  ALL_ITEMS,
+  ensureTable,
+  getItemsForBrand,
+  lookupDescription,
+  getProductsByBrand,
+  addProduct,
+  updateProduct,
+  deactivateProduct,
+};
