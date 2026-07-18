@@ -36,7 +36,7 @@ exports.downloadTemplate = async (req, res) => {
       return res.status(400).json({ error: 'Please select a valid brand and type.' });
     }
 
-    const items = Object.keys(getItemsForBrand(brand));
+    const items = Object.keys(await getItemsForBrand(brand));
     if (items.length === 0) {
       return res.status(400).json({ error: `No item codes configured for ${brand}.` });
     }

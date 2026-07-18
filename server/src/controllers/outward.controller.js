@@ -117,7 +117,7 @@ exports.getProducts = async (req, res) => {
   if (!company) return res.status(400).json({ error: 'company query param is required.' });
 
   try {
-    const items = getItemsForBrand(company);
+    const items = await getItemsForBrand(company);
     const customer = await getCustomer(company);
     const data = Object.entries(items).map(([itemCode, description]) => ({
       itemCode,
