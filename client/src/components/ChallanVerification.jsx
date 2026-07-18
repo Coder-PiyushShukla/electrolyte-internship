@@ -154,7 +154,7 @@ function buildHtmlReport({ brand, challanNo, challanDate, lotNo, rows }) {
 // ── History Modal ─────────────────────────────────────────────────────────────
 
 function HistoryModal({ onClose, onLoad }) {
-    const [history] = useState(loadHistory);
+    const [history, setHistory] = useState(loadHistory);
     const [search, setSearch] = useState('');
 
     const filtered = history.filter(
@@ -162,6 +162,14 @@ function HistoryModal({ onClose, onLoad }) {
             h.challanNo.toLowerCase().includes(search.toLowerCase()) ||
             (h.brand || '').toLowerCase().includes(search.toLowerCase())
     );
+
+    const handleDelete = (id, e) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this challan from history?')) return;
+        const updated = history.filter((h) => h.id !== id);
+        saveHistory(updated);
+        setHistory(updated);
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -199,12 +207,20 @@ function HistoryModal({ onClose, onLoad }) {
                                     <p className="text-sm font-semibold text-white">{h.challanNo}</p>
                                     <p className="text-xs text-surface-400">{h.brand} • {h.challanDate} • Lot {h.lotNo ?? '-'} • {h.rows.length} item(s)</p>
                                 </div>
-                                <button
-                                    onClick={() => { onLoad(h); onClose(); }}
-                                    className="text-xs px-3 py-1.5 bg-brand-600/20 text-brand-400 border border-brand-500/30 rounded-lg hover:bg-brand-500/30 transition-all cursor-pointer"
-                                >
-                                    Load
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => { onLoad(h); onClose(); }}
+                                        className="text-xs px-3 py-1.5 bg-brand-600/20 text-brand-400 border border-brand-500/30 rounded-lg hover:bg-brand-500/30 transition-all cursor-pointer"
+                                    >
+                                        Load
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDelete(h.id, e)}
+                                        className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-all cursor-pointer"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
@@ -373,7 +389,7 @@ export default function ChallanVerification() {
     // (Feature 1) This is the moment the Lot No. is actually, permanently
     // incremented for the brand - saving a challan "uses up" that lot number.
 
-    const handleSave = async () => {
+    const handleSaveDispatch = async () => {
         if (!challanNo.trim()) { toast.error('Please enter a Challan Number.'); return; }
 
         // Require at least one row with both an item code and a physical qty
@@ -383,6 +399,16 @@ export default function ChallanVerification() {
         if (validRows.length === 0) {
             toast.error('Please fill in at least one item code and physical quantity before saving.');
             return;
+        }
+
+        // Reminder popup if not saved to history first
+        const history = loadHistory();
+        const isSavedInHistory = history.some((h) => h.challanNo === challanNo.trim());
+        if (!isSavedInHistory) {
+            const proceed = window.confirm(
+                'Reminder: You have not saved this challan to history. Are you sure you want to save dispatch without saving to history first? (Saving to history allows you to load these details later)'
+            );
+            if (!proceed) return;
         }
 
         try {
@@ -400,20 +426,6 @@ export default function ChallanVerification() {
                 rows: validRows,
             });
 
-            // 3. Save to local history for the History modal
-            const history = loadHistory();
-            const entry = {
-                id: Date.now(),
-                brand,
-                challanNo: challanNo.trim(),
-                challanDate,
-                lotNo: finalLotNo,
-                rows,
-                savedAt: new Date().toISOString(),
-            };
-            const updated = [entry, ...history.filter((h) => h.challanNo !== entry.challanNo)].slice(0, 50);
-            saveHistory(updated);
-
             setDraftSnapshot(serializeInwardDraft());
             setHasUserInteracted(false);
             setHasUnsavedChanges(false);
@@ -423,41 +435,40 @@ export default function ChallanVerification() {
         }
     };
 
+    const handleSaveHistory = () => {
+        if (!challanNo.trim()) {
+            toast.error('Please enter a Challan Number before saving to history.');
+            return;
+        }
+
+        const history = loadHistory();
+        const entry = {
+            id: Date.now(),
+            brand,
+            challanNo: challanNo.trim(),
+            challanDate,
+            lotNo,
+            rows,
+            savedAt: new Date().toISOString(),
+        };
+
+        const updated = [entry, ...history.filter((h) => h.challanNo !== entry.challanNo)].slice(0, 50);
+        saveHistory(updated);
+        toast.success('Challan details successfully saved to history!');
+    };
+
     // ── Load from History ──
 
-    const handleLoad = async (h) => {
+    const handleLoad = (h) => {
         if (hasUserInteracted && JSON.stringify(serializeInwardDraft()) !== JSON.stringify(draftSnapshot)) {
             const confirmed = window.confirm('You have unsaved changes. Click OK to stay here and keep the draft, or Cancel to discard it and load this challan.');
             if (confirmed) return;
         }
 
-        try {
-            await revertInwardChallan({ brand: h.brand, challanNo: h.challanNo });
-        } catch (err) {
-            toast.error(err.response?.data?.error || 'Failed to remove the previously saved challan from inventory.');
-            return;
-        }
-
-        const loadedBrand = companies.some((c) => c.brand === h.brand) ? h.brand : 'Bajaj';
-        historyRestoreRef.current = true;
-        setBrand(loadedBrand);
-        setChallanNo(h.challanNo);
-        setChallanDate(h.challanDate);
-        setLotNo(h.lotNo ?? null);
-        setRows(h.rows);
-        setHasUserInteracted(false);
-        setDraftSnapshot({
-            brand: loadedBrand,
-            challanNo: h.challanNo,
-            challanDate: h.challanDate,
-            rows: (h.rows || []).map((row) => ({
-                itemCode: row.itemCode || '',
-                description: row.description || '',
-                challanQty: row.challanQty || '',
-                physicalQty: row.physicalQty || '',
-            })),
-        });
-        setHasUnsavedChanges(false);
+        // Just fill the rows info from the saved snapshot, keeping ongoing metadata.
+        setRows(h.rows || []);
+        setHasUserInteracted(true);
+        toast.success('Challan template loaded from history!');
     };
 
     // ── Email: real server-side send (Feature 3) ──
@@ -728,13 +739,22 @@ export default function ChallanVerification() {
 
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-3 pt-1">
-                        {/* Save */}
+                        {/* Save Dispatch */}
                         <button
-                            onClick={handleSave}
+                            onClick={handleSaveDispatch}
                             className="flex items-center gap-2 px-4 py-2.5 text-sm text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-lg shadow-brand-500/20 transition-all duration-200 cursor-pointer"
                         >
                             <FiSave className="w-4 h-4" />
-                            Save Challan
+                            Save Dispatch
+                        </button>
+
+                        {/* Save History */}
+                        <button
+                            onClick={handleSaveHistory}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-brand-400 bg-brand-600/10 border border-brand-500/20 hover:bg-brand-500/20 rounded-xl transition-all duration-200 cursor-pointer"
+                        >
+                            <FiClock className="w-4 h-4" />
+                            Save History
                         </button>
 
                         {/* Verify Report (replaces Copy Report - Feature 2) */}

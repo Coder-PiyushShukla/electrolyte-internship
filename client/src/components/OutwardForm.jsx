@@ -7,7 +7,7 @@ import {
 import toast from 'react-hot-toast';
 import {
     getCustomers, getProducts, getCompanyInfo, peekNextDc, peekNextOutwardLot,
-    checkInventory, createDispatch, generateDocument, previewDispatchPdf, downloadDispatchPdf, sendOutwardEmail, revertOutwardDispatch,
+    checkInventory, createDispatch, generateDocument, previewDispatchPdf, downloadDispatchPdf, sendOutwardEmail,
 } from '../utils/outwardApi';
 import { getEwayBill } from '../utils/ewayBillApi';
 import EwayBillModal from './EwayBillModal';
@@ -42,13 +42,20 @@ function saveHistory(history) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
 }
 
-function HistoryModal({ onClose, onLoad, history }) {
+function HistoryModal({ onClose, onLoad, onDelete, history }) {
     const [search, setSearch] = useState('');
 
     const filtered = history.filter((entry) => {
         const needle = search.toLowerCase();
         return [entry.dcNo, entry.brand, entry.companyName, entry.challanDate].some((value) => String(value || '').toLowerCase().includes(needle));
     });
+
+    const handleDeleteClick = (id, e) => {
+        e.stopPropagation();
+        if (confirm('Are you sure you want to delete this dispatch from history?')) {
+            onDelete(id);
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -84,12 +91,20 @@ function HistoryModal({ onClose, onLoad, history }) {
                                     <p className="text-xs text-surface-400">{entry.brand} • {entry.challanDate} • Lot {entry.lotNo ?? '-'} • {entry.rows?.length || 0} item(s)</p>
                                     <p className="text-xs text-surface-500">{entry.companyName || entry.brand}</p>
                                 </div>
-                                <button
-                                    onClick={() => { onLoad(entry); onClose(); }}
-                                    className="text-xs px-3 py-1.5 bg-brand-600/20 text-brand-400 border border-brand-500/30 rounded-lg hover:bg-brand-500/30 transition-all cursor-pointer"
-                                >
-                                    Load
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => { onLoad(entry); onClose(); }}
+                                        className="text-xs px-3 py-1.5 bg-brand-600/20 text-brand-400 border border-brand-500/30 rounded-lg hover:bg-brand-500/30 transition-all cursor-pointer"
+                                    >
+                                        Load
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDeleteClick(entry.id, e)}
+                                        className="text-xs px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-all cursor-pointer"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
@@ -313,6 +328,18 @@ export default function OutwardForm({ user }) {
             }
         }
 
+        // Reminder popup if not saved to history first
+        const currentHistory = loadHistory();
+        const isSavedInHistory = currentHistory.some(
+            (h) => h.brand === brand && h.challanDate === challanDate
+        );
+        if (!isSavedInHistory) {
+            const proceed = window.confirm(
+                'Reminder: You have not saved this dispatch to history. Are you sure you want to save dispatch without saving to history first? (Saving to history allows you to load these details later)'
+            );
+            if (!proceed) return;
+        }
+
         setSaving(true);
         try {
             const dispatch = await createDispatch({
@@ -339,35 +366,6 @@ export default function OutwardForm({ user }) {
             setDcNo(dispatch.dc_no);
             setLotNo(dispatch.lot_no);
 
-            const historyPayload = {
-                id: Date.now(),
-                dispatchId: dispatch.id,
-                brand,
-                dcNo: dispatch.dc_no,
-                lotNo: dispatch.lot_no,
-                challanDate,
-                vehicleNo,
-                courierPartner,
-                companyName: customerInfo?.companyName || '',
-                companyAddress: customerInfo?.address || '',
-                phoneNo: customerInfo?.phone || '',
-                gstin: customerInfo?.gstin || '',
-                remarks,
-                rows: validRows.map((r) => ({
-                    itemCode: r.itemCode,
-                    description: r.description,
-                    status: r.status,
-                    hsnCode: r.hsnCode,
-                    unit: r.unit,
-                    quantity: r.quantity,
-                    rate: r.rate,
-                })),
-                savedAt: new Date().toISOString(),
-            };
-            const updatedHistory = [historyPayload, ...historyEntries.filter((entry) => entry.dcNo !== historyPayload.dcNo)].slice(0, 30);
-            saveHistory(updatedHistory);
-            setHistoryEntries(updatedHistory);
-
             setDraftSnapshot(serializeOutwardDraft());
             setHasUserInteracted(false);
             setHasUnsavedChanges(false);
@@ -377,6 +375,53 @@ export default function OutwardForm({ user }) {
         } finally {
             setSaving(false);
         }
+    };
+
+    // ── Save to History (local snapshot only — does NOT touch DB or inventory) ──
+
+    const handleSaveHistory = () => {
+        if (!brand) { toast.error('Please select a company before saving to history.'); return; }
+
+        const validRows = rows.filter((r) => r.itemCode || r.description || r.hsnCode || r.quantity || r.rate);
+
+        const entry = {
+            id: Date.now(),
+            brand,
+            dcNo: typeof dcNo === 'object' ? dcNo?.nextDcNo : dcNo || null,
+            lotNo: typeof lotNo === 'object' ? lotNo?.nextLotNo : lotNo || null,
+            challanDate,
+            vehicleNo,
+            courierPartner,
+            companyName: customerInfo?.companyName || '',
+            companyAddress: customerInfo?.address || '',
+            phoneNo: customerInfo?.phone || '',
+            gstin: customerInfo?.gstin || '',
+            remarks,
+            rows: validRows.map((r) => ({
+                itemCode: r.itemCode,
+                description: r.description,
+                status: r.status,
+                hsnCode: r.hsnCode,
+                unit: r.unit,
+                quantity: r.quantity,
+                rate: r.rate,
+            })),
+            savedAt: new Date().toISOString(),
+        };
+
+        const currentHistory = loadHistory();
+        const updated = [entry, ...currentHistory.filter((h) => !(h.brand === entry.brand && h.challanDate === entry.challanDate))].slice(0, 50);
+        saveHistory(updated);
+        setHistoryEntries(updated);
+        toast.success('Dispatch details successfully saved to history!');
+    };
+
+    // ── Delete from History ──
+
+    const handleDeleteHistory = (id) => {
+        const updated = historyEntries.filter((h) => h.id !== id);
+        saveHistory(updated);
+        setHistoryEntries(updated);
     };
 
     // ── Preview PDF before save / send ──
@@ -419,24 +464,16 @@ export default function OutwardForm({ user }) {
         }
     };
 
-const handleLoadHistory = async (entry) => {
+    const handleLoadHistory = (entry) => {
         if (hasUserInteracted && JSON.stringify(serializeOutwardDraft()) !== JSON.stringify(draftSnapshot)) {
             const confirmed = window.confirm('You have unsaved changes. Click OK to stay here and keep the draft, or Cancel to discard it and load this challan.');
             if (confirmed) return;
         }
 
-        try {
-            await revertOutwardDispatch({ dispatchId: entry.dispatchId || null, dcNo: entry.dcNo || null });
-        } catch (err) {
-            toast.error(err.response?.data?.error || 'Failed to revert the previously saved dispatch.');
-            return;
-        }
-
+        // Only populate form fields from the saved snapshot — does NOT revert DB or inventory
         setLoadingHistory(true);
         restoringHistoryRef.current = true;
         setBrand(entry.brand || '');
-        setDcNo(entry.dcNo || null);
-        setLotNo(entry.lotNo || null);
         setChallanDate(entry.challanDate || new Date().toISOString().split('T')[0]);
         setVehicleNo(entry.vehicleNo || '');
         setCourierPartner(entry.courierPartner || '');
@@ -454,24 +491,8 @@ const handleLoadHistory = async (entry) => {
         })));
         setSavedDispatch(null);
         setCustomerInfo(customers.find((c) => c.brand === entry.brand) || null);
-        setHasUserInteracted(false);
-        setDraftSnapshot({
-            brand: entry.brand || '',
-            challanDate: entry.challanDate || new Date().toISOString().split('T')[0],
-            vehicleNo: entry.vehicleNo || '',
-            courierPartner: entry.courierPartner || '',
-            remarks: entry.remarks || '',
-            rows: (entry.rows || []).map((row) => ({
-                itemCode: row.itemCode || '',
-                description: row.description || '',
-                status: row.status || 'OK',
-                hsnCode: row.hsnCode || '',
-                unit: row.unit || 'Nos',
-                quantity: row.quantity ?? '',
-                rate: row.rate ?? '',
-            })),
-        });
-        setHasUnsavedChanges(false);
+        setHasUserInteracted(true);
+        toast.success('Dispatch details loaded from history!');
     };
 
     // ── Generate + Download PDF ──
@@ -541,6 +562,7 @@ const handleLoadHistory = async (entry) => {
                 <HistoryModal
                     onClose={() => setShowHistory(false)}
                     onLoad={handleLoadHistory}
+                    onDelete={handleDeleteHistory}
                     history={historyEntries}
                 />
             )}
@@ -866,6 +888,15 @@ const handleLoadHistory = async (entry) => {
                             <FiEye className="w-4 h-4" />
                         )}
                         {previewingPdf ? 'Preparing...' : 'View Report'}
+                    </button>
+
+                    {/* Save History */}
+                    <button
+                        onClick={handleSaveHistory}
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-surface-200 bg-surface-800/80 border border-surface-700 rounded-xl hover:bg-surface-700 hover:text-white transition-all duration-200 cursor-pointer"
+                    >
+                        <FiClock className="w-4 h-4" />
+                        Save History
                     </button>
 
                     {/* Save Dispatch */}
