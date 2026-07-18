@@ -7,9 +7,9 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 const BOOT_LINES = [
-  '> PROVISIONING NEW UNIT...',
-  '> SILKSCREEN OUTLINE PRINTED',
-  '> COMPONENTS PLACING...',
+  '> OPERATOR REGISTRATION REQUEST...',
+  '> VALIDATING USER INFORMATION [READY]',
+  '> SUBMITTING ACCESS REQUEST...',
   '> AWAITING ADMIN APPROVAL_',
 ];
 
@@ -158,7 +158,7 @@ export default function RegisterPage() {
             transition={{ delay: 3.4 }}
             className="mt-2 text-[#9c8a70] text-sm text-center max-w-sm"
           >
-            Every operator gets their own board. Populate it, and the floor comes online.
+          Request access to the PCB Inventory Management System to manage company onboarding, inward verification, outward dispatches, and delivery documentation.
           </motion.p>
         </div>
       </div>

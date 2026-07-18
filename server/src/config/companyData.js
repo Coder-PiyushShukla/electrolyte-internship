@@ -42,6 +42,13 @@ async function ensureTable() {
   `);
 
   await db.query(`
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+  `);
+  await db.query(`
+    ALTER TABLE brands ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+  `);
+
+  await db.query(`
     DO $$
     BEGIN
       IF to_regclass('public.pcb_transactions') IS NOT NULL THEN

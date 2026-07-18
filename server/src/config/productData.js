@@ -55,6 +55,13 @@ async function ensureTable() {
     )
   `);
 
+  await db.query(`
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+  `);
+  await db.query(`
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+  `);
+
   // Seed initial items for known brands if table is empty for that brand
   for (const [brand, items] of Object.entries(ALL_ITEMS)) {
     const exist = await db.query('SELECT 1 FROM products WHERE company_key = $1 LIMIT 1', [brand]);
