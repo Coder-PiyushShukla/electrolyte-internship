@@ -10,8 +10,9 @@ router.use(auth);
 // Companies
 router.get('/', companyCtrl.list);
 router.post('/', companyCtrl.create);
-router.patch('/:brand', companyCtrl.update);
 router.patch('/:brand/deactivate', companyCtrl.deactivate);
+router.patch('/:brand/reactivate', companyCtrl.reactivate);
+router.patch('/:brand', companyCtrl.update);
 
 // Products for a company
 router.get('/:brand/products', productCtrl.getProductsByBrand);

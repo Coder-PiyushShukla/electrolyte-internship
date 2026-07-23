@@ -182,8 +182,9 @@ export default function OutwardForm({ user }) {
     useEffect(() => {
         getCustomers()
             .then((list) => {
-                setCustomers(list);
-                if (list.length > 0) setBrand(list[0].brand);
+                const activeList = (list || []).filter((c) => c.isActive !== false);
+                setCustomers(activeList);
+                if (activeList.length > 0) setBrand(activeList[0].brand);
             })
             .catch(() => toast.error('Failed to load customer list.'));
     }, []);

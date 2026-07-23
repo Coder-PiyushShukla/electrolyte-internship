@@ -6,7 +6,7 @@ import {
     FiAlertCircle, FiEye, FiHash,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { lookupDescription, getItemCodes } from '../data/masterData';
+import { getProductsForCompany } from '../utils/companyApi';
 import { peekNextLotNo, incrementLotNo, sendChallanReportEmail, recordInwardInventory, revertInwardChallan } from '../utils/lotAndEmail';
 import { getCustomers } from '../utils/outwardApi';
 import ItemCodeCombobox from './ItemCodeCombobox';
@@ -273,6 +273,7 @@ export default function ChallanVerification() {
     const { setHasUnsavedChanges } = useUnsavedChanges();
     const [brand, setBrand] = useState('Bajaj');
     const [companies, setCompanies] = useState([]);
+    const [productMap, setProductMap] = useState({}); // { itemCode: description } for current brand
     const [challanNo, setChallanNo] = useState('');
     const [challanDate, setChallanDate] = useState(new Date().toISOString().split('T')[0]);
     const [lotNo, setLotNo] = useState(null); // auto-calculated, never user-editable
@@ -291,7 +292,14 @@ export default function ChallanVerification() {
         rows: [],
     }));
 
-    const itemCodes = getItemCodes(brand);
+    // Item codes for the current brand (derived from productMap)
+    const itemCodes = Object.keys(productMap);
+
+    // API-backed lookup: replaces the old static masterData lookupDescription
+    const lookupDescription = (b, code) => {
+        if (!code) return '';
+        return productMap[String(code).trim()] || '';
+    };
 
     const serializeInwardDraft = useCallback(() => ({
         brand,
@@ -315,14 +323,31 @@ export default function ChallanVerification() {
     useEffect(() => {
         getCustomers()
             .then((list) => {
-                setCompanies(list);
-                if (list.length > 0 && !list.some((c) => c.brand === brand)) {
-                    setBrand(list[0].brand);
+                // Only show active companies in new forms
+                const activeList = list.filter((c) => c.isActive !== false);
+                setCompanies(activeList);
+                if (activeList.length > 0 && !activeList.some((c) => c.brand === brand)) {
+                    setBrand(activeList[0].brand);
                 }
             })
             .catch(() => toast.error('Failed to load company list.'));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // ── Fetch product list whenever brand changes (replaces static masterData) ──
+    useEffect(() => {
+        if (!brand) return;
+        let cancelled = false;
+        getProductsForCompany(brand)
+            .then((products) => {
+                if (cancelled) return;
+                const map = {};
+                products.forEach((p) => { map[String(p.itemCode).trim()] = p.description || ''; });
+                setProductMap(map);
+            })
+            .catch(() => { if (!cancelled) setProductMap({}); });
+        return () => { cancelled = true; };
+    }, [brand]);
 
     // ── Lot No: peek the next lot number whenever the brand changes ──
     // (Feature 1) Default value conceptually starts at 0; the upcoming lot

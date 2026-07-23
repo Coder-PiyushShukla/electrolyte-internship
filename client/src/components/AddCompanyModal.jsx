@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FiX, FiSave, FiPlusCircle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { createCustomer } from '../utils/outwardApi';
+import { createCompany } from '../utils/companyApi';
 
 // Shared "Add New Company" modal used by both the Inward (ChallanVerification)
 // and Outward (OutwardForm) pages, so a company added from either page
@@ -22,12 +22,16 @@ export default function AddCompanyModal({ onClose, onCreated }) {
     const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
     const handleSubmit = async () => {
-        if (!form.brand.trim()) { toast.error('Please enter a short company name (used as the brand key, e.g. "Atomberg").'); return; }
-        if (!form.companyName.trim()) { toast.error('Please enter the full company name for challans.'); return; }
+        if (!form.brand.trim()) { toast.error('Brand Key is required.'); return; }
+        if (!form.companyName.trim()) { toast.error('Full Company Name is required.'); return; }
+        if (!form.address.trim()) { toast.error('Address is required.'); return; }
+        if (!form.phone.trim()) { toast.error('Phone number is required.'); return; }
+        if (!form.gstin.trim()) { toast.error('GSTIN is required.'); return; }
+        if (!form.email.trim()) { toast.error('Email is required.'); return; }
 
         setSaving(true);
         try {
-            const created = await createCustomer({
+            const created = await createCompany({
                 brand: form.brand.trim(),
                 companyName: form.companyName.trim(),
                 address: form.address.trim(),
@@ -79,29 +83,18 @@ export default function AddCompanyModal({ onClose, onCreated }) {
                             <p className="text-[11px] text-surface-500 mt-1">Shown in dropdowns and transaction lists.</p>
                         </div>
                         <div>
-                            <label className={labelCls}>Default Rate (₹/unit)</label>
+                            <label className={labelCls}>Full Company Name *</label>
                             <input
-                                type="number" min="0"
-                                value={form.defaultRate}
-                                onChange={(e) => update('defaultRate', e.target.value)}
-                                placeholder="0"
+                                value={form.companyName}
+                                onChange={(e) => update('companyName', e.target.value)}
+                                placeholder="e.g. Atomberg Technologies Pvt. Ltd."
                                 className={inputCls}
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className={labelCls}>Full Company Name *</label>
-                        <input
-                            value={form.companyName}
-                            onChange={(e) => update('companyName', e.target.value)}
-                            placeholder="e.g. Atomberg Technologies Pvt. Ltd."
-                            className={inputCls}
-                        />
-                    </div>
-
-                    <div>
-                        <label className={labelCls}>Address</label>
+                        <label className={labelCls}>Address *</label>
                         <textarea
                             value={form.address}
                             onChange={(e) => update('address', e.target.value)}
@@ -113,7 +106,7 @@ export default function AddCompanyModal({ onClose, onCreated }) {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className={labelCls}>Phone No.</label>
+                            <label className={labelCls}>Phone No. *</label>
                             <input
                                 value={form.phone}
                                 onChange={(e) => update('phone', e.target.value)}
@@ -122,7 +115,7 @@ export default function AddCompanyModal({ onClose, onCreated }) {
                             />
                         </div>
                         <div>
-                            <label className={labelCls}>GSTIN</label>
+                            <label className={labelCls}>GSTIN *</label>
                             <input
                                 value={form.gstin}
                                 onChange={(e) => update('gstin', e.target.value)}
@@ -132,23 +125,34 @@ export default function AddCompanyModal({ onClose, onCreated }) {
                         </div>
                     </div>
 
+                    <div>
+                        <label className={labelCls}>Email *</label>
+                        <input
+                            type="email"
+                            value={form.email}
+                            onChange={(e) => update('email', e.target.value)}
+                            placeholder="contact@company.com"
+                            className={inputCls}
+                        />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className={labelCls}>Email (optional)</label>
-                            <input
-                                type="email"
-                                value={form.email}
-                                onChange={(e) => update('email', e.target.value)}
-                                placeholder="contact@company.com"
-                                className={inputCls}
-                            />
-                        </div>
-                        <div>
-                            <label className={labelCls}>HSN Code</label>
+                            <label className={labelCls}>HSN Code <span className="text-surface-600">(optional)</span></label>
                             <input
                                 value={form.hsnCode}
                                 onChange={(e) => update('hsnCode', e.target.value)}
                                 placeholder="85340000"
+                                className={inputCls}
+                            />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Default Rate (₹/unit) <span className="text-surface-600">(optional)</span></label>
+                            <input
+                                type="number" min="0"
+                                value={form.defaultRate}
+                                onChange={(e) => update('defaultRate', e.target.value)}
+                                placeholder="0"
                                 className={inputCls}
                             />
                         </div>

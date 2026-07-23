@@ -20,6 +20,11 @@ export async function deactivateCompany(brand) {
   return data.data;
 }
 
+export async function reactivateCompany(brand) {
+  const { data } = await api.patch(`/companies/${encodeURIComponent(brand)}/reactivate`);
+  return data.data;
+}
+
 export async function getProductsForCompany(brand) {
   const { data } = await api.get(`/companies/${encodeURIComponent(brand)}/products`);
   return data.data;
@@ -27,6 +32,11 @@ export async function getProductsForCompany(brand) {
 
 export async function addProductsToCompany(brand, products) {
   const { data } = await api.post(`/companies/${encodeURIComponent(brand)}/products`, { products });
+  return data.data;
+}
+
+export async function addSingleProductToCompany(brand, product) {
+  const { data } = await api.post(`/companies/${encodeURIComponent(brand)}/products`, { products: [product] });
   return data.data;
 }
 
